@@ -2,11 +2,16 @@ import streamlit as st
 import requests
 import openai
 import base64
+import os
+from dotenv import load_dotenv
 
-# Spotify and OpenAI API credentials
-SPOTIFY_CLIENT_ID = '62600a98ced142c39e97428131f960c4'
-SPOTIFY_CLIENT_SECRET = '747f8fd00c3b43ef82642a818fc6ae92'
-OPENAI_API_KEY = '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'  # Replace with your OpenAI API key
+# Load environment variables from .env file
+load_dotenv()
+
+# Spotify and OpenAI API credentials from environment variables
+SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
+SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Function to get Spotify access token
 def get_spotify_access_token():
