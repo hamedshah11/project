@@ -6,7 +6,7 @@ import base64
 # Spotify and OpenAI API credentials
 SPOTIFY_CLIENT_ID = '62600a98ced142c39e97428131f960c4'
 SPOTIFY_CLIENT_SECRET = '747f8fd00c3b43ef82642a818fc6ae92'
-OPENAI_API_KEY = 'YourOpenAIAPIKey'  # Replace with your OpenAI API key
+OPENAI_API_KEY = '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'  # Replace with your OpenAI API key
 
 # Function to get Spotify access token
 def get_spotify_access_token():
