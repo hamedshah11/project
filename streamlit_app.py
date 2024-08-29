@@ -30,6 +30,24 @@ def get_spotify_access_token():
         st.error("Failed to get access token")
         return None
 
+# Function to search for a track ID by track name
+def search_track_id(track_name, access_token):
+    url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=1"
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        tracks = response.json().get('tracks', {}).get('items', [])
+        if tracks:
+            return tracks[0]['id']
+        else:
+            st.error("No tracks found with that name.")
+            return None
+    else:
+        st.error(f"Error searching for track: {response.status_code}")
+        return None
+
 # Function to get audio features of a track
 def get_audio_features(track_id, access_token):
     url = f"https://api.spotify.com/v1/audio-features/{track_id}"
@@ -77,20 +95,24 @@ def generate_description(features):
 def main():
     st.title("Spotify Track Audio Features Analyzer")
 
-    track_id = st.text_input("Enter Spotify Track ID", "")
-    if track_id:
+    track_name = st.text_input("Enter Spotify Track Name", "")
+    if track_name:
         st.write("Fetching access token...")
         access_token = get_spotify_access_token()
         
         if access_token:
-            st.write("Fetching audio features...")
-            features = get_audio_features(track_id, access_token)
+            st.write(f"Searching for track: {track_name}...")
+            track_id = search_track_id(track_name, access_token)
             
-            if features:
-                st.write("Audio Features:", features)
-                st.write("Generating track description...")
-                description = generate_description(features)
-                st.write("Track Description:", description)
+            if track_id:
+                st.write("Fetching audio features...")
+                features = get_audio_features(track_id, access_token)
+                
+                if features:
+                    st.write("Audio Features:", features)
+                    st.write("Generating track description...")
+                    description = generate_description(features)
+                    st.write("Track Description:", description)
 
 if __name__ == "__main__":
     main()
