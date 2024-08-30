@@ -13,21 +13,26 @@ SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# Function to get Spotify access token
+# Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
     url = "https://accounts.spotify.com/api/token"
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": SPOTIFY_CLIENT_ID,
+        "client_secret": SPOTIFY_CLIENT_SECRET
+    }
     headers = {
-        "Authorization": "Basic " + base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode(),
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    data = {
-        "grant_type": "client_credentials"
-    }
+    
     response = requests.post(url, headers=headers, data=data)
+    
     if response.status_code == 200:
-        return response.json().get("access_token")
+        token_info = response.json()
+        access_token = token_info.get("access_token")
+        return access_token
     else:
-        st.error("Failed to get access token")
+        st.error(f"Failed to get access token: {response.status_code}")
         return None
 
 # Function to search for a track ID by track name
