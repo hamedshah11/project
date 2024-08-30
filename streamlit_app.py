@@ -90,8 +90,8 @@ def generate_description(features):
     Valence: {features['valence']}
     """
 
-    # Make the chat completion request using the new OpenAI client
     try:
+        # Making the chat completion request using the new OpenAI client
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "user", "content": description_prompt}
@@ -99,11 +99,13 @@ def generate_description(features):
             model="gpt-4"  # Use the model you have access to
         )
         
-        return chat_completion['choices'][0]['message']['content'].strip()
+        # Accessing the response correctly
+        return chat_completion.choices[0].message.content.strip()
     
     except Exception as e:
         st.error(f"Error generating description: {str(e)}")
         return None
+
 
 # Streamlit app main function
 def main():
