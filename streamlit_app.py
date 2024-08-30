@@ -1,7 +1,6 @@
 import os
 import streamlit as st
 import requests
-import plotly.express as px
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -65,36 +64,37 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching data: {response.status_code}")
         return None
 
-# Function to plot enhanced mood visualization with Plotly
-def plot_enhanced_mood(features, track_name):
-    fig = px.scatter(
-        x=[features['valence']], 
-        y=[features['energy']],
-        size=[features['tempo']],  # Size based on tempo
-        color=[features['danceability']],  # Color based on danceability
-        hover_name=track_name,  # Show track name on hover
-        labels={
-            "x": "Valence (Positivity)",
-            "y": "Energy",
-            "color": "Danceability",
-            "size": "Tempo"
-        },
-        title=f"Mood and Energy Visualization for {track_name}"
-    )
+# Function to generate track description using GPT-4 Mini model
+def generate_description(features):
+    description_prompt = f"""
+    Imagine you're describing a piece of music. Based on the following characteristics, describe the overall mood, suggest places where it might be best enjoyed, and guess the genre:
     
-    fig.update_layout(
-        xaxis=dict(range=[0, 1]),
-        yaxis=dict(range=[0, 1]),
-        xaxis_title="Valence (Positivity)",
-        yaxis_title="Energy",
-        showlegend=False
-    )
+    1. The track has a certain amount of energy, which might make it feel lively or laid-back.
+    2. It has a danceability factor, meaning it could either be great for dancing or more suited for relaxing.
+    3. The positivity of the track varies, making it sound either cheerful, neutral, or somewhat serious.
+    4. It has an acoustic quality that might make it feel organic, or it might be more electronic and produced.
+    5. There is a certain level of instrumentalness, meaning it might have vocals or could be an instrumental piece.
+
+    Based on these aspects, describe the track in a few sentences, recommend a general setting where this track would be best enjoyed, and guess the genre.
+    """
+
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "user", "content": description_prompt}
+            ],
+            model="gpt-4-mini"
+        )
+        
+        return chat_completion.choices[0].message.content.strip()
     
-    st.plotly_chart(fig)
+    except Exception as e:
+        st.error(f"Error generating description: {str(e)}")
+        return None
 
 # Streamlit app main function
 def main():
-    st.title("Spotify Track Dashboard")
+    st.title("Spotify Track Description Generator")
 
     track_name = st.text_input("Enter Spotify Track Name", "")
     if track_name:
@@ -112,8 +112,9 @@ def main():
                     features = get_audio_features(track_id, access_token)
                     
                     if features:
-                        # Enhanced Scatter Plot
-                        plot_enhanced_mood(features, selected_track)
+                        description = generate_description(features)
+                        if description:
+                            st.write(description)
 
 if __name__ == "__main__":
     main()
