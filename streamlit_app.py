@@ -20,7 +20,7 @@ def get_spotify_access_token():
     url = "https://accounts.spotify.com/api/token"
     data = {
         "grant_type": "client_credentials",
-        "client_id": SPOTIFY_CLIENT_ID,  # Removed the extra quotation mark here
+        "client_id": SPOTIFY_CLIENT_ID,
         "client_secret": SPOTIFY_CLIENT_SECRET
     }
     headers = {
@@ -36,9 +36,6 @@ def get_spotify_access_token():
     else:
         st.error(f"Failed to get access token: {response.status_code}")
         return None
-
-# The rest of the code remains the same
-
 
 # Function to search for tracks by name
 def search_tracks(track_name, access_token):
@@ -87,7 +84,7 @@ def generate_description(features):
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4o-mini"
+            model="gpt-4-mini"
         )
         
         return chat_completion.choices[0].message.content.strip()
@@ -109,14 +106,15 @@ def generate_image(description):
             image_prompt = image_prompt[:997] + "..."  # Truncate the prompt if it's still too long
         
         response = client.images.generate(prompt=image_prompt, size="1024x1024")
-        image_url = response['data'][0]['url']
+        
+        # Correctly access the URL from the response object
+        image_url = response.data[0].url
         
         return image_url
     
     except Exception as e:
         st.error(f"Error generating image: {str(e)}")
         return None
-
 
 # Streamlit app main function
 def main():
