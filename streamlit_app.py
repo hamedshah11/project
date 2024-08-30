@@ -1,9 +1,9 @@
 import os
 import streamlit as st
 import requests
+import plotly.express as px
 from openai import OpenAI
 from dotenv import load_dotenv
-import matplotlib.pyplot as plt
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,9 +14,7 @@ SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Initialize the OpenAI client
-client = OpenAI(
-    api_key=OPENAI_API_KEY,
-)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
@@ -67,56 +65,36 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching data: {response.status_code}")
         return None
 
-# Function to generate track description using the latest OpenAI API
-def generate_description(features):
-    description_prompt = f"""
-    Describe the following track features in a detailed paragraph:
-
-    Acousticness: {features['acousticness']}
-    Danceability: {features['danceability']}
-    Duration (ms): {features['duration_ms']}
-    Energy: {features['energy']}
-    Instrumentalness: {features['instrumentalness']}
-    Key: {features['key']}
-    Liveness: {features['liveness']}
-    Loudness: {features['loudness']}
-    Mode: {features['mode']}
-    Speechiness: {features['speechiness']}
-    Tempo: {features['tempo']}
-    Time Signature: {features['time_signature']}
-    Valence: {features['valence']}
-    """
-
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "user", "content": description_prompt}
-            ],
-            model="gpt-4"
-        )
-        
-        return chat_completion.choices[0].message.content.strip()
+# Function to plot enhanced mood visualization with Plotly
+def plot_enhanced_mood(features, track_name):
+    fig = px.scatter(
+        x=[features['valence']], 
+        y=[features['energy']],
+        size=[features['tempo']],  # Size based on tempo
+        color=[features['danceability']],  # Color based on danceability
+        hover_name=track_name,  # Show track name on hover
+        labels={
+            "x": "Valence (Positivity)",
+            "y": "Energy",
+            "color": "Danceability",
+            "size": "Tempo"
+        },
+        title=f"Mood and Energy Visualization for {track_name}"
+    )
     
-    except Exception as e:
-        st.error(f"Error generating description: {str(e)}")
-        return None
-
-# Function to plot mood visualization
-def plot_mood(valence, energy, track_name):
-    fig, ax = plt.subplots()
-    ax.scatter(valence, energy, color='blue', s=100)
+    fig.update_layout(
+        xaxis=dict(range=[0, 1]),
+        yaxis=dict(range=[0, 1]),
+        xaxis_title="Valence (Positivity)",
+        yaxis_title="Energy",
+        showlegend=False
+    )
     
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xlabel('Valence (Positivity)')
-    ax.set_ylabel('Energy')
-    ax.set_title(f'Mood Visualization for {track_name}')
-    
-    st.pyplot(fig)
+    st.plotly_chart(fig)
 
 # Streamlit app main function
 def main():
-    st.title("Spotify Track Description and Mood Visualization")
+    st.title("Spotify Track Dashboard")
 
     track_name = st.text_input("Enter Spotify Track Name", "")
     if track_name:
@@ -134,12 +112,8 @@ def main():
                     features = get_audio_features(track_id, access_token)
                     
                     if features:
-                        description = generate_description(features)
-                        if description:
-                            st.write(description)
-                            
-                        # Visualize the mood based on valence and energy
-                        plot_mood(features['valence'], features['energy'], selected_track)
+                        # Enhanced Scatter Plot
+                        plot_enhanced_mood(features, selected_track)
 
 if __name__ == "__main__":
     main()
