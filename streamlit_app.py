@@ -20,7 +20,7 @@ def get_spotify_access_token():
     url = "https://accounts.spotify.com/api/token"
     data = {
         "grant_type": "client_credentials",
-        "client_id": SPOTIFY_CLIENT_ID",
+        "client_id": SPOTIFY_CLIENT_ID,  # Removed the extra quotation mark here
         "client_secret": SPOTIFY_CLIENT_SECRET
     }
     headers = {
@@ -36,6 +36,9 @@ def get_spotify_access_token():
     else:
         st.error(f"Failed to get access token: {response.status_code}")
         return None
+
+# The rest of the code remains the same
+
 
 # Function to search for tracks by name
 def search_tracks(track_name, access_token):
