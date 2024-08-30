@@ -1,8 +1,7 @@
+import os
 import streamlit as st
 import requests
-import openai
-import base64
-import os
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -12,6 +11,11 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# Initialize the OpenAI client
+client = OpenAI(
+    api_key=OPENAI_API_KEY,
+)
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
@@ -66,7 +70,7 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching data: {response.status_code}")
         return None
 
-# Updated function to generate track description using the latest OpenAI API
+# Function to generate track description using the latest OpenAI API
 def generate_description(features):
     description_prompt = f"""
     Describe the following track features in a detailed paragraph:
@@ -86,17 +90,16 @@ def generate_description(features):
     Valence: {features['valence']}
     """
 
-    # Using the latest OpenAI API call method
+    # Make the chat completion request using the new OpenAI client
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # Use the latest model available to you
+        chat_completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": description_prompt}
-            ]
+            ],
+            model="gpt-4"  # Use the model you have access to
         )
-
-        return response['choices'][0]['message']['content'].strip()
+        
+        return chat_completion['choices'][0]['message']['content'].strip()
     
     except Exception as e:
         st.error(f"Error generating description: {str(e)}")
