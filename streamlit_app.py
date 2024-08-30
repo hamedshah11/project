@@ -87,7 +87,7 @@ def generate_description(features):
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4-mini"
+            model="gpt-4o-mini"
         )
         
         return chat_completion.choices[0].message.content.strip()
