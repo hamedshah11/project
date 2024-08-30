@@ -20,7 +20,7 @@ def get_spotify_access_token():
     url = "https://accounts.spotify.com/api/token"
     data = {
         "grant_type": "client_credentials",
-        "client_id": SPOTIFY_CLIENT_ID,
+        "client_id": SPOTIFY_CLIENT_ID",
         "client_secret": SPOTIFY_CLIENT_SECRET
     }
     headers = {
@@ -84,7 +84,7 @@ def generate_description(features):
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4o-mini"
+            model="gpt-4-mini"
         )
         
         return chat_completion.choices[0].message.content.strip()
@@ -93,9 +93,23 @@ def generate_description(features):
         st.error(f"Error generating description: {str(e)}")
         return None
 
+# Function to generate an image for the track using DALL-E
+def generate_image(description):
+    try:
+        image_prompt = f"Create an abstract, visually captivating image that represents the following description: {description}. The image should reflect the mood, energy, and style of the track, incorporating elements that suggest its genre and setting."
+        
+        response = client.images.generate(prompt=image_prompt, size="1024x1024")
+        image_url = response['data'][0]['url']
+        
+        return image_url
+    
+    except Exception as e:
+        st.error(f"Error generating image: {str(e)}")
+        return None
+
 # Streamlit app main function
 def main():
-    st.title("Spotify Track Description Generator")
+    st.title("Spotify Track Description and Artwork Generator")
 
     track_name = st.text_input("Enter Spotify Track Name", "")
     if track_name:
@@ -116,6 +130,10 @@ def main():
                         description = generate_description(features)
                         if description:
                             st.write(description)
+                            
+                            image_url = generate_image(description)
+                            if image_url:
+                                st.image(image_url, caption="Generated Artwork")
 
 if __name__ == "__main__":
     main()
