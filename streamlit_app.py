@@ -44,7 +44,7 @@ def search_tracks(track_name, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200:
+    if response.status_code == 200):
         tracks = response.json().get('tracks', {}).get('items', [])
         return tracks
     else:
@@ -58,7 +58,7 @@ def get_audio_features(track_id, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200:
+    if response.status_code == 200):
         return response.json()
     else:
         st.error(f"Error fetching data: {response.status_code}")
@@ -96,10 +96,11 @@ def generate_description(features):
 # Function to generate an image for the track using DALL-E
 def generate_image(description):
     try:
-        # Create a shorter, more focused prompt with instructions to exclude text
+        # Create a more focused prompt with explicit instructions to exclude text
         image_prompt = (
-            f"Create an abstract, visually captivating image that represents the following description: {description}. "
-            "The image should reflect the mood and style of the track, capturing its energy and genre, and should contain no words or text."
+            f"Create an abstract, visually captivating image representing the following description: {description}. "
+            "The image should reflect the mood and style of the track, capturing its energy and genre. "
+            "Please ensure that the image contains no words, text, or letters, focusing only on colors, shapes, and abstract visual elements."
         )
         
         if len(image_prompt) > 1000:
