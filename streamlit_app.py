@@ -39,23 +39,19 @@ def get_spotify_access_token():
         st.error(f"Failed to get access token: {response.status_code}")
         return None
 
-# Function to search for a track ID by track name
-def search_track_id(track_name, access_token):
-    url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=1"
+# Function to search for tracks by name
+def search_tracks(track_name, access_token):
+    url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=5"
     headers = {
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         tracks = response.json().get('tracks', {}).get('items', [])
-        if tracks:
-            return tracks[0]['id']
-        else:
-            st.error("No tracks found with that name.")
-            return None
+        return tracks
     else:
         st.error(f"Error searching for track: {response.status_code}")
-        return None
+        return []
 
 # Function to get audio features of a track
 def get_audio_features(track_id, access_token):
@@ -91,21 +87,18 @@ def generate_description(features):
     """
 
     try:
-        # Making the chat completion request using the new OpenAI client
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4"  # Use the model you have access to
+            model="gpt-4"
         )
         
-        # Accessing the response correctly
         return chat_completion.choices[0].message.content.strip()
     
     except Exception as e:
         st.error(f"Error generating description: {str(e)}")
         return None
-
 
 # Streamlit app main function
 def main():
@@ -117,18 +110,24 @@ def main():
         access_token = get_spotify_access_token()
         
         if access_token:
-            st.write(f"Searching for track: {track_name}...")
-            track_id = search_track_id(track_name, access_token)
+            st.write(f"Searching for tracks matching: {track_name}...")
+            tracks = search_tracks(track_name, access_token)
             
-            if track_id:
-                st.write("Fetching audio features...")
-                features = get_audio_features(track_id, access_token)
+            if tracks:
+                # Display a dropdown menu for the user to select the correct track
+                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
+                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
                 
-                if features:
-                    st.write("Audio Features:", features)
-                    st.write("Generating track description...")
-                    description = generate_description(features)
-                    st.write("Track Description:", description)
+                if selected_track:
+                    track_id = track_options[selected_track]
+                    st.write("Fetching audio features...")
+                    features = get_audio_features(track_id, access_token)
+                    
+                    if features:
+                        st.write("Audio Features:", features)
+                        st.write("Generating track description...")
+                        description = generate_description(features)
+                        st.write("Track Description:", description)
 
 if __name__ == "__main__":
     main()
