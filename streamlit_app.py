@@ -66,7 +66,7 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching data: {response.status_code}")
         return None
 
-# Function to generate track description using GPT-4 Mini model
+# Updated function to generate track description using the latest OpenAI API
 def generate_description(features):
     description_prompt = f"""
     Describe the following track features in a detailed paragraph:
@@ -86,15 +86,21 @@ def generate_description(features):
     Valence: {features['valence']}
     """
 
-    response = openai.Completion.create(
-        model="gpt-4-mini",
-        prompt=description_prompt,
-        max_tokens=150,
-        temperature=0.7,
-        api_key=OPENAI_API_KEY
-    )
+    # Using the latest OpenAI API call method
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # Use the latest model available to you
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": description_prompt}
+            ]
+        )
 
-    return response.choices[0].text.strip()
+        return response['choices'][0]['message']['content'].strip()
+    
+    except Exception as e:
+        st.error(f"Error generating description: {str(e)}")
+        return None
 
 # Streamlit app main function
 def main():
