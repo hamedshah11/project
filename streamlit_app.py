@@ -58,7 +58,7 @@ def get_audio_features(track_id, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200):
+    if response.status_code == 200:
         return response.json()
     else:
         st.error(f"Error fetching data: {response.status_code}")
