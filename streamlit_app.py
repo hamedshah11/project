@@ -74,8 +74,9 @@ def generate_description(features):
     3. The positivity of the track varies, making it sound either cheerful, neutral, or somewhat serious.
     4. It has an acoustic quality that might make it feel organic, or it might be more electronic and produced.
     5. There is a certain level of instrumentalness, meaning it might have vocals or could be an instrumental piece.
-
-    Based on these aspects, describe the track in a few sentences, recommend a general setting where this track would be best enjoyed, and guess the genre.
+    6. The tempo of the track is {features['tempo']} BPM, which can influence the genre. For example, a higher tempo (around 120-130 BPM) is often associated with house music or dance tracks, while a lower tempo might suggest a more relaxed genre.
+    
+    Based on these aspects, describe the track in a few sentences, recommend a general setting where this track would be best enjoyed, and guess the genre, especially considering how the tempo might influence the style of the music.
     """
 
     try:
@@ -83,7 +84,7 @@ def generate_description(features):
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4o-mini"
+            model="gpt-4-mini"
         )
         
         return chat_completion.choices[0].message.content.strip()
