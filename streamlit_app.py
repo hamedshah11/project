@@ -99,7 +99,14 @@ def generate_description(features):
 # Function to generate an image for the track using DALL-E
 def generate_image(description):
     try:
-        image_prompt = f"Create an abstract, visually captivating image that represents the following description: {description}. The image should reflect the mood, energy, and style of the track, incorporating elements that suggest its genre and setting."
+        # Create a shorter, more focused prompt
+        image_prompt = (
+            f"Create an abstract, visually captivating image that represents the following description: {description}. "
+            "The image should reflect the mood and style of the track, capturing its energy and genre."
+        )
+        
+        if len(image_prompt) > 1000:
+            image_prompt = image_prompt[:997] + "..."  # Truncate the prompt if it's still too long
         
         response = client.images.generate(prompt=image_prompt, size="1024x1024")
         image_url = response['data'][0]['url']
@@ -109,6 +116,7 @@ def generate_image(description):
     except Exception as e:
         st.error(f"Error generating image: {str(e)}")
         return None
+
 
 # Streamlit app main function
 def main():
