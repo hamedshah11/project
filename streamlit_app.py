@@ -3,6 +3,7 @@ import streamlit as st
 import requests
 from openai import OpenAI
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 
 # Load environment variables from .env file
 load_dotenv()
@@ -100,34 +101,45 @@ def generate_description(features):
         st.error(f"Error generating description: {str(e)}")
         return None
 
+# Function to plot mood visualization
+def plot_mood(valence, energy, track_name):
+    fig, ax = plt.subplots()
+    ax.scatter(valence, energy, color='blue', s=100)
+    
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel('Valence (Positivity)')
+    ax.set_ylabel('Energy')
+    ax.set_title(f'Mood Visualization for {track_name}')
+    
+    st.pyplot(fig)
+
 # Streamlit app main function
 def main():
-    st.title("Spotify Track Audio Features Analyzer")
+    st.title("Spotify Track Description and Mood Visualization")
 
     track_name = st.text_input("Enter Spotify Track Name", "")
     if track_name:
-        st.write("Fetching access token...")
         access_token = get_spotify_access_token()
         
         if access_token:
-            st.write(f"Searching for tracks matching: {track_name}...")
             tracks = search_tracks(track_name, access_token)
             
             if tracks:
-                # Display a dropdown menu for the user to select the correct track
                 track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
                 selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
                 
                 if selected_track:
                     track_id = track_options[selected_track]
-                    st.write("Fetching audio features...")
                     features = get_audio_features(track_id, access_token)
                     
                     if features:
-                        st.write("Audio Features:", features)
-                        st.write("Generating track description...")
                         description = generate_description(features)
-                        st.write("Track Description:", description)
+                        if description:
+                            st.write(description)
+                            
+                        # Visualize the mood based on valence and energy
+                        plot_mood(features['valence'], features['energy'], selected_track)
 
 if __name__ == "__main__":
     main()
