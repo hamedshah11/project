@@ -64,38 +64,116 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching data: {response.status_code}")
         return None
 
-# Function to get recommendations based on a song's audio features
-def get_recommendations_by_features(features, access_token):
-    url = (
-        f"https://api.spotify.com/v1/recommendations?"
-        f"limit=10"
-        f"&target_acousticness={features['acousticness']}"
-        f"&target_danceability={features['danceability']}"
-        f"&target_energy={features['energy']}"
-        f"&target_instrumentalness={features['instrumentalness']}"
-        f"&target_liveness={features['liveness']}"
-        f"&target_speechiness={features['speechiness']}"
-        f"&target_tempo={features['tempo']}"
-        f"&target_valence={features['valence']}"
-    )
-    headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
+# Function to recommend places or scenes where a DJ could play the track
+def recommend_dj_places(features):
+    description_prompt = f"""
+    Based on the following audio features of the track, suggest places or scenes where a DJ could play this track:
+
+    1. **Acousticness**: {features['acousticness']}
+    2. **Danceability**: {features['danceability']}
+    3. **Energy**: {features['energy']}
+    4. **Instrumentalness**: {features['instrumentalness']}
+    5. **Liveness**: {features['liveness']}
+    6. **Loudness**: {features['loudness']}
+    7. **Speechiness**: {features['speechiness']}
+    8. **Tempo**: {features['tempo']} BPM
+    9. **Valence**: {features['valence']}
     
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return response.json().get('tracks', [])
-    else:
-        st.error(f"Error fetching recommendations: {response.status_code}")
+    Suggest scenarios, venues, or settings where the track would be appropriate for a DJ set, based on its energy, danceability, and mood.
+    """
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "user", "content": description_prompt}
+            ],
+            model="gpt-4-mini"
+        )
+        
+        return chat_completion.choices[0].message.content.strip()
+    
+    except Exception as e:
+        st.error(f"Error generating DJ places recommendation: {str(e)}")
         return None
 
-# Function to generate track description using GPT-4 Mini model
-def generate_description(features):
+# Function to generate a description for the track and an associated image using DALL-E
+def generate_description_and_image(features):
     description_prompt = f"""
-    You are describing a music track based on its audio features. Use the following information to describe the track's overall mood, possible genre, and suggest scenarios or locations where it would be best enjoyed. Here's a breakdown of the key audio features for the track:
+    Create a description of the track based on the following audio features:
     
-    1. **Acousticness**: This measures how acoustic the track is, with a value between 0.0 and 1.0. A higher value means the track is more likely to be acoustic. This track has an acousticness of {features['acousticness']}.
+    1. **Acousticness**: {features['acousticness']}
+    2. **Danceability**: {features['danceability']}
+    3. **Energy**: {features['energy']}
+    4. **Instrumentalness**: {features['instrumentalness']}
+    5. **Liveness**: {features['liveness']}
+    6. **Loudness**: {features['loudness']}
+    7. **Speechiness**: {features['speechiness']}
+    8. **Tempo**: {features['tempo']} BPM
+    9. **Valence**: {features['valence']}
     
-    2. **Danceability**: This describes how suitable the track is for dancing. Values closer to 1.0 mean the track is more danceable. The danceability score for this track is {features['danceability']}.
+    Based on these characteristics, write a brief description of the song.
+    """
+
+    try:
+        # Generate text description
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "user", "content": description_prompt}
+            ],
+            model="gpt-4-mini"
+        )
+        description = chat_completion.choices[0].message.content.strip()
+
+        # Generate an image using the description
+        image_prompt = (
+            f"Create an abstract, visually captivating image representing the following description: {description}. "
+            "The image should reflect the mood and style of the track, capturing its energy and genre. "
+            "Please ensure that the image contains no words, text, or letters, focusing only on colors, shapes, and abstract visual elements."
+        )
+        
+        if len(image_prompt) > 1000:
+            image_prompt = image_prompt[:997] + "..."  # Truncate the prompt if it's still too long
+        
+        response = client.images.generate(prompt=image_prompt, size="1024x1024")
+        image_url = response.data[0].url
+        
+        return description, image_url
     
-    3. **Energy**: This measures the intensity and activity of the track.
+    except Exception as e:
+        st.error(f"Error generating description or image: {str(e)}")
+        return None, None
+
+# Streamlit app main function
+def main():
+    st.title("Spotify DJ Scene Recommendation and Track Description App")
+
+    track_name = st.text_input("Enter Spotify Track Name", "")
+    if track_name:
+        access_token = get_spotify_access_token()
+        
+        if access_token:
+            tracks = search_tracks(track_name, access_token)
+            
+            if tracks:
+                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
+                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
+                
+                if selected_track:
+                    track_id = track_options[selected_track]
+                    features = get_audio_features(track_id, access_token)
+                    
+                    if features:
+                        st.subheader("Where would a DJ play this track?")
+                        dj_places = recommend_dj_places(features)
+                        if dj_places:
+                            st.write(dj_places)
+
+                        st.subheader("Track Description and Visual Representation")
+                        description, image_url = generate_description_and_image(features)
+                        if description:
+                            st.write(description)
+                        if image_url:
+                            st.image(image_url, caption="Generated Artwork")
+
+if __name__ == "__main__":
+    main()
