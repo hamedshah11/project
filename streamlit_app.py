@@ -99,7 +99,10 @@ def recommend_dj_places(features):
             ],
             model="gpt-4o-mini"
         )
-        return chat_completion.choices[0].message.content.strip()
+        # Split the recommendation into bullet points based on line breaks
+        places = chat_completion.choices[0].message.content.strip().split('\n')
+        clean_places = [place for place in places if place]  # Remove any empty lines
+        return clean_places
     except Exception as e:
         st.error(f"Error generating DJ places recommendation: {str(e)}")
         return None
@@ -204,7 +207,7 @@ def main():
                         dj_places = recommend_dj_places(features)
                         if dj_places:
                             st.markdown(f"**Best Places or Settings for this Track:**")
-                            for i, place in enumerate(dj_places.split('\n'), 1):
+                            for i, place in enumerate(dj_places, 1):  # Number the places properly
                                 st.markdown(f"{i}. {place}")
 
                         # Generate an image based on the audio features
