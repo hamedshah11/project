@@ -1,14 +1,19 @@
 import os
 import streamlit as st
 import requests
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Spotify credentials
+# Spotify and OpenAI API credentials from environment variables
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# Initialize the OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
@@ -69,35 +74,57 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching audio features: {str(e)}")
         return None
 
-# Main Streamlit app function
-def main():
-    st.title("DJAI - The DJ's AI Assistant")
+# Function to recommend DJ places based on track audio features
+def recommend_dj_places(features):
+    description_prompt = f"""
+    Based on the following detailed audio features of the track, suggest the top 3-4 places or settings where a DJ could play this track:
 
-    # Input for the track name
-    track_name = st.text_input("Enter Spotify Track Name", "")
+    1. **Acousticness**: {features['acousticness']} (A measure of how acoustic a track is. Values closer to 1 indicate a more acoustic sound.)
+    2. **Danceability**: {features['danceability']} (This describes how suitable a track is for dancing. Values closer to 1 indicate higher suitability for dancing.)
+    3. **Energy**: {features['energy']} (Energy is a perceptual measure of intensity and activity. Higher values suggest a more energetic and lively track.)
+    4. **Instrumentalness**: {features['instrumentalness']} (This predicts whether the track contains no vocals. Values closer to 1 suggest instrumental tracks.)
+    5. **Liveness**: {features['liveness']} (Liveness detects the presence of an audience. Higher values suggest a live performance.)
+    6. **Loudness**: {features['loudness']} dB (The overall loudness of the track in decibels.)
+    7. **Speechiness**: {features['speechiness']} (Speechiness detects spoken words in a track. Values closer to 1 indicate more speech-like qualities.)
+    8. **Tempo**: {features['tempo']} BPM (The tempo of the track in beats per minute.)
+    9. **Valence**: {features['valence']} (A measure of the musical positiveness conveyed by the track. Higher values sound more positive and cheerful, while lower values sound more negative and moody.)
 
-    if track_name:
-        # Get the Spotify access token
-        access_token = get_spotify_access_token()
-        if access_token:
-            # Search for the track
-            tracks = search_tracks(track_name, access_token)
-            if tracks:
-                # Create a selectbox for user to choose the correct track
-                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
-                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
-                
-                if selected_track:
-                    st.success(f"You selected: {selected_track}")
-                    track_id = track_options[selected_track]
+    Based on these characteristics, suggest appropriate settings like clubs, outdoor events, lounges, or other social environments where this track would resonate the most.
+    """
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "user", "content": description_prompt}
+            ],
+            model="gpt-4o-mini"
+        )
+        return chat_completion.choices[0].message.content.strip()
+    except Exception as e:
+        st.error(f"Error generating DJ places recommendation: {str(e)}")
+        return None
 
-                    # Get and display audio features
-                    features = get_audio_features(track_id, access_token)
-                    if features:
-                        st.subheader("Audio Features of the Track")
-                        st.write(features)  # Display audio features in a structured way
-            else:
-                st.warning("No tracks found for the given search")
-
-if __name__ == "__main__":
-    main()
+# Function to get track recommendations based on audio features
+def get_track_recommendations(track_id, features, access_token):
+    try:
+        url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
+        params = {
+            "min_energy": features['energy'] - 0.1,
+            "max_energy": features['energy'] + 0.1,
+            "min_tempo": features['tempo'] - 10,
+            "max_tempo": features['tempo'] + 10,
+            "min_danceability": features['danceability'] - 0.1,
+            "max_danceability": features['danceability'] + 0.1
+        }
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200:
+            recommendations = response.json().get('tracks', [])
+            return recommendations
+        else:
+            st.error(f"Error fetching recommendations: {response.status_code}")
+            return []
+    except Exception as e:
+        st.error(f"
