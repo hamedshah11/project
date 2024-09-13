@@ -74,6 +74,32 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching audio features: {str(e)}")
         return None
 
+# Function to get track recommendations based on audio features
+def get_track_recommendations(track_id, features, access_token):
+    try:
+        url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
+        params = {
+            "min_energy": features['energy'] - 0.1,
+            "max_energy": features['energy'] + 0.1,
+            "min_tempo": features['tempo'] - 10,
+            "max_tempo": features['tempo'] + 10,
+            "min_danceability": features['danceability'] - 0.1,
+            "max_danceability": features['danceability'] + 0.1
+        }
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200:
+            recommendations = response.json().get('tracks', [])
+            return recommendations
+        else:
+            st.error(f"Error fetching recommendations: {response.status_code}")
+            return []
+    except Exception as e:
+        st.error(f"Error fetching recommendations: {str(e)}")
+        return []
+
 # Function to recommend DJ places based on track audio features
 def recommend_dj_places(features):
     description_prompt = f"""
@@ -105,7 +131,7 @@ def recommend_dj_places(features):
         return None
 
 # Function to generate a description and DALL-E image for the track based on audio features
-def generate_description_and_image(features):
+def generate_image_based_on_description(features):
     description_prompt = f"""
     Create a description of the track based on the following audio features:
     
@@ -142,11 +168,11 @@ def generate_description_and_image(features):
         response = client.images.generate(prompt=prompt_instruction, size="1024x1024")
         image_url = response.data[0].url
 
-        return description, image_url
+        return image_url
 
     except Exception as e:
-        st.error(f"Error generating description or image: {str(e)}")
-        return None, None
+        st.error(f"Error generating image: {str(e)}")
+        return None
 
 # Main Streamlit app function
 def main():
@@ -179,13 +205,18 @@ def main():
                         if dj_places:
                             st.write(dj_places)
 
-                        # Generate track description and image
-                        st.subheader("Track Description and Visual Representation")
-                        description, image_url = generate_description_and_image(features)
-                        if description:
-                            st.write(description)
+                        # Generate an image based on track description
+                        st.subheader("Track Visual Representation")
+                        image_url = generate_image_based_on_description(features)
                         if image_url:
                             st.image(image_url, caption="Generated Artwork")
+
+                        # Get similar track recommendations
+                        st.subheader("Similar Track Recommendations")
+                        recommendations = get_track_recommendations(track_id, features, access_token)
+                        if recommendations:
+                            for track in recommendations:
+                                st.write(f"{track['name']} by {track['artists'][0]['name']}")
                     else:
                         st.warning("No audio features found for the selected track")
             else:
