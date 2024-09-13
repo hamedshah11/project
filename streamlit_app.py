@@ -71,7 +71,7 @@ def get_track_recommendations(track_id, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200):
+    if response.status_code == 200:
         recommendations = response.json().get('tracks', [])
         return recommendations
     else:
