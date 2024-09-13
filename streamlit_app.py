@@ -148,6 +148,10 @@ def generate_description_and_image(features):
         )
         image_prompt = chat_completion_prompt.choices[0].message.content.strip()
 
+        # Ensure prompt length is within 1000 characters
+        if len(image_prompt) > 1000:
+            image_prompt = image_prompt[:997] + "..."
+
         # Generate an image using DALL-E based on the cool prompt
         response = client.images.generate(prompt=image_prompt, size="1024x1024")
         image_url = response.data[0].url
