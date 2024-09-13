@@ -203,7 +203,9 @@ def main():
                         st.subheader("Where would a DJ play this track?")
                         dj_places = recommend_dj_places(features)
                         if dj_places:
-                            st.write(dj_places)
+                            st.markdown(f"**Best Places or Settings for this Track:**")
+                            for i, place in enumerate(dj_places.split('\n')):
+                                st.markdown(f"{i+1}. {place}")
 
                         # Generate an image based on track description
                         st.subheader("Track Visual Representation")
@@ -214,13 +216,3 @@ def main():
                         # Get similar track recommendations
                         st.subheader("Similar Track Recommendations")
                         recommendations = get_track_recommendations(track_id, features, access_token)
-                        if recommendations:
-                            for track in recommendations:
-                                st.write(f"{track['name']} by {track['artists'][0]['name']}")
-                    else:
-                        st.warning("No audio features found for the selected track")
-            else:
-                st.warning("No tracks found for the given search")
-
-if __name__ == "__main__":
-    main()
