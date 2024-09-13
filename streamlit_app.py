@@ -71,7 +71,7 @@ def get_track_recommendations(track_id, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200:
+    if response.status_code == 200):
         recommendations = response.json().get('tracks', [])
         return recommendations
     else:
@@ -81,8 +81,8 @@ def get_track_recommendations(track_id, access_token):
 # Function to recommend places or scenes where a DJ could play the track
 def recommend_dj_places(features):
     description_prompt = f"""
-    Based on the following audio features of the track, suggest places or scenes where a DJ could play this track:
-
+    Based on the following audio features of the track, think deeply and suggest the top 3-4 places or settings where a DJ could play this track:
+    
     1. **Acousticness**: {features['acousticness']}
     2. **Danceability**: {features['danceability']}
     3. **Energy**: {features['energy']}
@@ -93,7 +93,7 @@ def recommend_dj_places(features):
     8. **Tempo**: {features['tempo']} BPM
     9. **Valence**: {features['valence']}
     
-    Suggest scenarios, venues, or settings where the track would be appropriate for a DJ set, based on its energy, danceability, and mood.
+    Please carefully consider the track's mood and tempo to suggest appropriate settings, like clubs, outdoor events, lounges, or other social environments where this track would resonate the most.
     """
     
     try:
@@ -110,7 +110,7 @@ def recommend_dj_places(features):
         st.error(f"Error generating DJ places recommendation: {str(e)}")
         return None
 
-# Function to generate a description for the track and an associated image using DALL-E
+# Function to generate a description for the track and create HD art using DALL-E
 def generate_description_and_image(features):
     description_prompt = f"""
     Create a description of the track based on the following audio features:
@@ -138,16 +138,17 @@ def generate_description_and_image(features):
         )
         description = chat_completion.choices[0].message.content.strip()
 
-        # Simplified and safe image generation prompt
-        image_prompt = (
-            f"Generate an abstract image representing the mood and style of a music track that has the following attributes: "
-            f"Acousticness {features['acousticness']}, Danceability {features['danceability']}, Energy {features['energy']}, "
-            f"Tempo {features['tempo']} BPM, and Valence {features['valence']}. Focus on abstract shapes and colors, no text."
+        # New instruction: Generate a cool prompt based on the features
+        prompt_instruction = f"Based on the track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}, generate an abstract, visually stunning HD art piece that conveys the mood and style of the track."
+
+        # Generate a DALL-E prompt using GPT-4 mini model
+        chat_completion_prompt = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt_instruction}],
+            model="gpt-4o-mini"
         )
-        
-        if len(image_prompt) > 1000:
-            image_prompt = image_prompt[:997] + "..."  # Truncate the prompt if it's still too long
-        
+        image_prompt = chat_completion_prompt.choices[0].message.content.strip()
+
+        # Generate an image using DALL-E based on the cool prompt
         response = client.images.generate(prompt=image_prompt, size="1024x1024")
         image_url = response.data[0].url
         
@@ -159,7 +160,7 @@ def generate_description_and_image(features):
 
 # Streamlit app main function
 def main():
-    st.title("Spotify DJ Scene Recommendation, Track Description & Similar Tracks")
+    st.title("DJAI - The DJ's AI Assistant")
 
     track_name = st.text_input("Enter Spotify Track Name", "")
     if track_name:
@@ -177,7 +178,7 @@ def main():
                     features = get_audio_features(track_id, access_token)
                     
                     if features:
-                        st.subheader("Where would a DJ play this track?")
+                        st.subheader("Top DJ Settings for This Track")
                         dj_places = recommend_dj_places(features)
                         if dj_places:
                             st.write(dj_places)
