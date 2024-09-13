@@ -52,6 +52,23 @@ def search_tracks(track_name, access_token):
         st.error(f"Error during track search: {str(e)}")
         return []
 
+# Function to get audio features of a track
+def get_audio_features(track_id, access_token):
+    try:
+        url = f"https://api.spotify.com/v1/audio-features/{track_id}"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"Error fetching data: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error fetching audio features: {str(e)}")
+        return None
+
 # Main Streamlit app function
 def main():
     st.title("DJAI - The DJ's AI Assistant")
@@ -72,6 +89,13 @@ def main():
                 
                 if selected_track:
                     st.success(f"You selected: {selected_track}")
+                    track_id = track_options[selected_track]
+
+                    # Get and display audio features
+                    features = get_audio_features(track_id, access_token)
+                    if features:
+                        st.subheader("Audio Features of the Track")
+                        st.write(features)  # Display audio features in a structured way
             else:
                 st.warning("No tracks found for the given search")
 
