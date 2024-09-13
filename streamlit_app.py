@@ -216,3 +216,9 @@ def main():
                         # Get similar track recommendations
                         st.subheader("Similar Track Recommendations")
                         recommendations = get_track_recommendations(track_id, features, access_token)
+                        if recommendations:
+                            for track in recommendations:
+                                track_name = track['name']
+                                artist_name = track['artists'][0]['name']
+                                track_url = track['external_urls']['spotify']
+                                st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
