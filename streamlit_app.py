@@ -44,7 +44,7 @@ def search_tracks(track_name, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200:
+    if response.status_code == 200):
         tracks = response.json().get('tracks', {}).get('items', [])
         return tracks
     else:
@@ -63,6 +63,20 @@ def get_audio_features(track_id, access_token):
     else:
         st.error(f"Error fetching data: {response.status_code}")
         return None
+
+# Function to get track recommendations based on audio features
+def get_track_recommendations(track_id, access_token):
+    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        recommendations = response.json().get('tracks', [])
+        return recommendations
+    else:
+        st.error(f"Error fetching recommendations: {response.status_code}")
+        return []
 
 # Function to recommend places or scenes where a DJ could play the track
 def recommend_dj_places(features):
@@ -135,7 +149,7 @@ def generate_description_and_image(features):
             image_prompt = image_prompt[:997] + "..."  # Truncate the prompt if it's still too long
         
         response = client.images.generate(prompt=image_prompt, size="1024x1024")
-        image_url = response['data'][0]['url']
+        image_url = response.data[0].url
         
         return description, image_url
     
@@ -145,7 +159,7 @@ def generate_description_and_image(features):
 
 # Streamlit app main function
 def main():
-    st.title("Spotify DJ Scene Recommendation and Track Description App")
+    st.title("Spotify DJ Scene Recommendation, Track Description & Similar Tracks")
 
     track_name = st.text_input("Enter Spotify Track Name", "")
     if track_name:
@@ -174,6 +188,13 @@ def main():
                             st.write(description)
                         if image_url:
                             st.image(image_url, caption="Generated Artwork")
+                    
+                    # Get Recommendations for Similar Tracks
+                    st.subheader("Similar Track Recommendations")
+                    recommendations = get_track_recommendations(track_id, access_token)
+                    if recommendations:
+                        for track in recommendations:
+                            st.write(f"{track['name']} by {track['artists'][0]['name']}")
 
 if __name__ == "__main__":
     main()
