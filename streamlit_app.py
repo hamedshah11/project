@@ -17,102 +17,67 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
-    url = "https://accounts.spotify.com/api/token"
-    data = {
-        "grant_type": "client_credentials",
-        "client_id": SPOTIFY_CLIENT_ID,
-        "client_secret": SPOTIFY_CLIENT_SECRET
-    }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    
-    response = requests.post(url, headers=headers, data=data)
-    
-    if response.status_code == 200:
-        token_info = response.json()
-        access_token = token_info.get("access_token")
-        return access_token
-    else:
-        st.error(f"Failed to get access token: {response.status_code}")
+    try:
+        url = "https://accounts.spotify.com/api/token"
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": SPOTIFY_CLIENT_ID,
+            "client_secret": SPOTIFY_CLIENT_SECRET
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        response = requests.post(url, headers=headers, data=data)
+        if response.status_code == 200:
+            token_info = response.json()
+            access_token = token_info.get("access_token")
+            return access_token
+        else:
+            st.error(f"Failed to get access token: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error during authentication: {str(e)}")
         return None
 
 # Function to search for tracks by name
 def search_tracks(track_name, access_token):
-    url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=5"
-    headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        tracks = response.json().get('tracks', {}).get('items', [])
-        return tracks
-    else:
-        st.error(f"Error searching for track: {response.status_code}")
+    try:
+        url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=5"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            tracks = response.json().get('tracks', {}).get('items', [])
+            return tracks
+        else:
+            st.error(f"Error searching for track: {response.status_code}")
+            return []
+    except Exception as e:
+        st.error(f"Error during track search: {str(e)}")
         return []
 
 # Function to get audio features of a track
 def get_audio_features(track_id, access_token):
-    url = f"https://api.spotify.com/v1/audio-features/{track_id}"
-    headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error(f"Error fetching data: {response.status_code}")
+    try:
+        url = f"https://api.spotify.com/v1/audio-features/{track_id}"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"Error fetching data: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error fetching audio features: {str(e)}")
         return None
 
-# Function to get the genre of the selected track
-def get_track_genre(track_id, access_token):
-    url = f"https://api.spotify.com/v1/tracks/{track_id}"
-    headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        track_info = response.json()
-        # Get the first genre from the artist's genre list
-        artist_id = track_info['artists'][0]['id']
-        artist_url = f"https://api.spotify.com/v1/artists/{artist_id}"
-        artist_response = requests.get(artist_url, headers=headers)
-        if artist_response.status_code == 200:
-            artist_info = artist_response.json()
-            genres = artist_info.get('genres', [])
-            if genres:
-                return genres[0]  # Return the first genre
-    return None
-
-# Function to get track recommendations based on audio features and genre
-def get_track_recommendations(track_id, genre, features, access_token):
-    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&seed_genres={genre}&limit=10"
-    params = {
-        "min_energy": features['energy'] - 0.1,
-        "max_energy": features['energy'] + 0.1,
-        "min_tempo": features['tempo'] - 10,
-        "max_tempo": features['tempo'] + 10,
-        "min_danceability": features['danceability'] - 0.1,
-        "max_danceability": features['danceability'] + 0.1,
-        "min_valence": features['valence'] - 0.1,
-        "max_valence": features['valence'] + 0.1,
-        "min_popularity": 50
-    }
-    headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
-    response = requests.get(url, headers=headers, params=params)
-    if response.status_code == 200:
-        recommendations = response.json().get('tracks', [])
-        return recommendations
-    else:
-        st.error(f"Error fetching recommendations: {response.status_code}")
-        return []
-
-# Function to recommend places or scenes where a DJ could play the track
+# Function to recommend DJ places based on track audio features
 def recommend_dj_places(features):
     description_prompt = f"""
-    Based on the following audio features of the track, think deeply and suggest the top 3-4 places or settings where a DJ could play this track:
+    Based on the following audio features of the track, suggest the top 3-4 places or settings where a DJ could play this track:
     
     1. **Acousticness**: {features['acousticness']}
     2. **Danceability**: {features['danceability']}
@@ -134,14 +99,12 @@ def recommend_dj_places(features):
             ],
             model="gpt-4o-mini"
         )
-        
         return chat_completion.choices[0].message.content.strip()
-    
     except Exception as e:
         st.error(f"Error generating DJ places recommendation: {str(e)}")
         return None
 
-# Function to generate a description for the track and create HD art using DALL-E
+# Function to generate a description and DALL-E image for the track based on audio features
 def generate_description_and_image(features):
     description_prompt = f"""
     Create a description of the track based on the following audio features:
@@ -169,32 +132,64 @@ def generate_description_and_image(features):
         )
         description = chat_completion.choices[0].message.content.strip()
 
-        # New instruction: Generate a cool prompt based on the features
-        prompt_instruction = f"Based on the track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}, generate an abstract, visually stunning HD art piece that conveys the mood and style of the track."
-
-        # Generate a DALL-E prompt using GPT-4 mini model
-        chat_completion_prompt = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt_instruction}],
-            model="gpt-4o-mini"
-        )
-        image_prompt = chat_completion_prompt.choices[0].message.content.strip()
-
         # Ensure prompt length is within 1000 characters
-        if len(image_prompt) > 1000:
-            image_prompt = image_prompt[:997] + "..."
+        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
 
-        # Generate an image using DALL-E based on the cool prompt
-        response = client.images.generate(prompt=image_prompt, size="1024x1024")
+        if len(prompt_instruction) > 1000:
+            prompt_instruction = prompt_instruction[:997] + "..."
+
+        # Generate the image
+        response = client.images.generate(prompt=prompt_instruction, size="1024x1024")
         image_url = response.data[0].url
-        
+
         return description, image_url
-    
+
     except Exception as e:
         st.error(f"Error generating description or image: {str(e)}")
         return None, None
 
-# Streamlit app main function
+# Main Streamlit app function
 def main():
     st.title("DJAI - The DJ's AI Assistant")
 
-   
+    # Input for the track name
+    track_name = st.text_input("Enter Spotify Track Name", "")
+    
+    if track_name:
+        # Get the Spotify access token
+        access_token = get_spotify_access_token()
+        if access_token:
+            # Search for the track
+            tracks = search_tracks(track_name, access_token)
+            
+            # Check if any tracks were found
+            if tracks:
+                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
+                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
+                
+                if selected_track:
+                    st.success(f"Track Selected: {selected_track}")
+                    track_id = track_options[selected_track]
+                    features = get_audio_features(track_id, access_token)
+
+                    if features:
+                        # Generate DJ places recommendations
+                        st.subheader("Where would a DJ play this track?")
+                        dj_places = recommend_dj_places(features)
+                        if dj_places:
+                            st.write(dj_places)
+
+                        # Generate track description and image
+                        st.subheader("Track Description and Visual Representation")
+                        description, image_url = generate_description_and_image(features)
+                        if description:
+                            st.write(description)
+                        if image_url:
+                            st.image(image_url, caption="Generated Artwork")
+                    else:
+                        st.warning("No audio features found for the selected track")
+            else:
+                st.warning("No tracks found for the given search")
+
+if __name__ == "__main__":
+    main()
