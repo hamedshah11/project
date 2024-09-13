@@ -26,7 +26,6 @@ def get_spotify_access_token():
         if response.status_code == 200:
             token_info = response.json()
             access_token = token_info.get("access_token")
-            st.write("Access Token:", access_token)  # Display the access token to check if it's working
             return access_token
         else:
             st.error(f"Failed to get access token: {response.status_code}")
@@ -45,7 +44,6 @@ def search_tracks(track_name, access_token):
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             tracks = response.json().get('tracks', {}).get('items', [])
-            st.write("Tracks Found:", tracks)  # Display the tracks to check if it's working
             return tracks
         else:
             st.error(f"Error searching for track: {response.status_code}")
@@ -66,7 +64,16 @@ def main():
         access_token = get_spotify_access_token()
         if access_token:
             # Search for the track
-            search_tracks(track_name, access_token)
+            tracks = search_tracks(track_name, access_token)
+            if tracks:
+                # Create a selectbox for user to choose the correct track
+                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
+                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
+                
+                if selected_track:
+                    st.success(f"You selected: {selected_track}")
+            else:
+                st.warning("No tracks found for the given search")
 
 if __name__ == "__main__":
     main()
