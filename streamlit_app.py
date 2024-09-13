@@ -44,7 +44,7 @@ def search_tracks(track_name, access_token):
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
-    if response.status_code == 200:
+    if response.status_code == 200):
         tracks = response.json().get('tracks', {}).get('items', [])
         return tracks
     else:
@@ -64,13 +64,44 @@ def get_audio_features(track_id, access_token):
         st.error(f"Error fetching data: {response.status_code}")
         return None
 
-# Function to get track recommendations based on audio features
-def get_track_recommendations(track_id, access_token):
-    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
+# Function to get the genre of the selected track
+def get_track_genre(track_id, access_token):
+    url = f"https://api.spotify.com/v1/tracks/{track_id}"
     headers = {
         'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        track_info = response.json()
+        # Get the first genre from the artist's genre list
+        artist_id = track_info['artists'][0]['id']
+        artist_url = f"https://api.spotify.com/v1/artists/{artist_id}"
+        artist_response = requests.get(artist_url, headers=headers)
+        if artist_response.status_code == 200:
+            artist_info = artist_response.json()
+            genres = artist_info.get('genres', [])
+            if genres:
+                return genres[0]  # Return the first genre
+    return None
+
+# Function to get track recommendations based on audio features and genre
+def get_track_recommendations(track_id, genre, features, access_token):
+    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&seed_genres={genre}&limit=10"
+    params = {
+        "min_energy": features['energy'] - 0.1,
+        "max_energy": features['energy'] + 0.1,
+        "min_tempo": features['tempo'] - 10,
+        "max_tempo": features['tempo'] + 10,
+        "min_danceability": features['danceability'] - 0.1,
+        "max_danceability": features['danceability'] + 0.1,
+        "min_valence": features['valence'] - 0.1,
+        "max_valence": features['valence'] + 0.1,
+        "min_popularity": 50
+    }
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers, params=params)
     if response.status_code == 200:
         recommendations = response.json().get('tracks', [])
         return recommendations
@@ -166,40 +197,4 @@ def generate_description_and_image(features):
 def main():
     st.title("DJAI - The DJ's AI Assistant")
 
-    track_name = st.text_input("Enter Spotify Track Name", "")
-    if track_name:
-        access_token = get_spotify_access_token()
-        
-        if access_token:
-            tracks = search_tracks(track_name, access_token)
-            
-            if tracks:
-                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
-                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
-                
-                if selected_track:
-                    track_id = track_options[selected_track]
-                    features = get_audio_features(track_id, access_token)
-                    
-                    if features:
-                        st.subheader("Top DJ Settings for This Track")
-                        dj_places = recommend_dj_places(features)
-                        if dj_places:
-                            st.write(dj_places)
-
-                        st.subheader("Track Description and Visual Representation")
-                        description, image_url = generate_description_and_image(features)
-                        if description:
-                            st.write(description)
-                        if image_url:
-                            st.image(image_url, caption="Generated Artwork")
-                    
-                    # Get Recommendations for Similar Tracks
-                    st.subheader("Similar Track Recommendations")
-                    recommendations = get_track_recommendations(track_id, access_token)
-                    if recommendations:
-                        for track in recommendations:
-                            st.write(f"{track['name']} by {track['artists'][0]['name']}")
-
-if __name__ == "__main__":
-    main()
+   
