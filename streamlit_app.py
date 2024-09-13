@@ -99,9 +99,9 @@ def recommend_dj_places(features):
             ],
             model="gpt-4o-mini"
         )
-        # Split the recommendation into bullet points based on line breaks
+        # Process the response to remove any numbering from the model's output
         places = chat_completion.choices[0].message.content.strip().split('\n')
-        clean_places = [place for place in places if place]  # Remove any empty lines
+        clean_places = [place.lstrip("0123456789. ") for place in places if place]  # Remove any unwanted numbers
         return clean_places
     except Exception as e:
         st.error(f"Error generating DJ places recommendation: {str(e)}")
@@ -207,7 +207,7 @@ def main():
                         dj_places = recommend_dj_places(features)
                         if dj_places:
                             st.markdown(f"**Best Places or Settings for this Track:**")
-                            for i, place in enumerate(dj_places, 1):  # Number the places properly
+                            for i, place in enumerate(dj_places, 1):  # Manually number the places
                                 st.markdown(f"{i}. {place}")
 
                         # Generate an image based on the audio features
