@@ -127,4 +127,56 @@ def get_track_recommendations(track_id, features, access_token):
             st.error(f"Error fetching recommendations: {response.status_code}")
             return []
     except Exception as e:
-        st.error(f"
+        st.error(f"Error fetching recommendations: {str(e)}")
+        return []
+
+# Main Streamlit app function
+def main():
+    st.title("DJAI - The DJ's AI Assistant")
+
+    # Input for the track name
+    track_name = st.text_input("Enter Spotify Track Name", "")
+
+    if track_name:
+        # Get the Spotify access token
+        access_token = get_spotify_access_token()
+        if access_token:
+            # Search for the track
+            tracks = search_tracks(track_name, access_token)
+            if tracks:
+                # Create a selectbox for user to choose the correct track
+                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
+                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
+                
+                if selected_track:
+                    st.success(f"You selected: {selected_track}")
+                    track_id = track_options[selected_track]
+
+                    # Get and display audio features
+                    features = get_audio_features(track_id, access_token)
+                    if features:
+                        st.subheader("Audio Features of the Track")
+                        st.write(features)  # Display audio features
+
+                        # Generate DJ places recommendations
+                        st.subheader("Where would a DJ play this track?")
+                        dj_places = recommend_dj_places(features)
+                        if dj_places:
+                            st.markdown(f"**Best Places or Settings for this Track:**")
+                            for i, place in enumerate(dj_places.split('\n')):
+                                st.markdown(f"{i+1}. {place}")
+
+                        # Get similar track recommendations
+                        st.subheader("Similar Track Recommendations")
+                        recommendations = get_track_recommendations(track_id, features, access_token)
+                        if recommendations:
+                            for track in recommendations:
+                                track_name = track['name']
+                                artist_name = track['artists'][0]['name']
+                                track_url = track['external_urls']['spotify']
+                                st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
+            else:
+                st.warning("No tracks found for the given search")
+
+if __name__ == "__main__":
+    main()
