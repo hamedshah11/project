@@ -124,18 +124,18 @@ def generate_description_and_image(features):
         )
         description = chat_completion.choices[0].message.content.strip()
 
-        # Generate an image using the description
+        # Simplified and safe image generation prompt
         image_prompt = (
-            f"Create an abstract, visually captivating image representing the following description: {description}. "
-            "The image should reflect the mood and style of the track, capturing its energy and genre. "
-            "Please ensure that the image contains no words, text, or letters, focusing only on colors, shapes, and abstract visual elements."
+            f"Generate an abstract image representing the mood and style of a music track that has the following attributes: "
+            f"Acousticness {features['acousticness']}, Danceability {features['danceability']}, Energy {features['energy']}, "
+            f"Tempo {features['tempo']} BPM, and Valence {features['valence']}. Focus on abstract shapes and colors, no text."
         )
         
         if len(image_prompt) > 1000:
             image_prompt = image_prompt[:997] + "..."  # Truncate the prompt if it's still too long
         
         response = client.images.generate(prompt=image_prompt, size="1024x1024")
-        image_url = response.data[0].url
+        image_url = response['data'][0]['url']
         
         return description, image_url
     
