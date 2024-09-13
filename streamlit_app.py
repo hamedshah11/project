@@ -87,7 +87,7 @@ def recommend_dj_places(features):
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4-mini"
+            model="gpt-4O-mini"
         )
         
         return chat_completion.choices[0].message.content.strip()
@@ -120,7 +120,7 @@ def generate_description_and_image(features):
             messages=[
                 {"role": "user", "content": description_prompt}
             ],
-            model="gpt-4-mini"
+            model="gpt-4O-mini"
         )
         description = chat_completion.choices[0].message.content.strip()
 
