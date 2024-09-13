@@ -79,15 +79,15 @@ def recommend_dj_places(features):
     description_prompt = f"""
     Based on the following detailed audio features of the track, suggest the top 3-4 places or settings where a DJ could play this track:
 
-    1. **Acousticness**: {features['acousticness']} (A measure of how acoustic a track is. Values closer to 1 indicate a more acoustic sound.)
-    2. **Danceability**: {features['danceability']} (This describes how suitable a track is for dancing. Values closer to 1 indicate higher suitability for dancing.)
-    3. **Energy**: {features['energy']} (Energy is a perceptual measure of intensity and activity. Higher values suggest a more energetic and lively track.)
-    4. **Instrumentalness**: {features['instrumentalness']} (This predicts whether the track contains no vocals. Values closer to 1 suggest instrumental tracks.)
-    5. **Liveness**: {features['liveness']} (Liveness detects the presence of an audience. Higher values suggest a live performance.)
-    6. **Loudness**: {features['loudness']} dB (The overall loudness of the track in decibels.)
-    7. **Speechiness**: {features['speechiness']} (Speechiness detects spoken words in a track. Values closer to 1 indicate more speech-like qualities.)
-    8. **Tempo**: {features['tempo']} BPM (The tempo of the track in beats per minute.)
-    9. **Valence**: {features['valence']} (A measure of the musical positiveness conveyed by the track. Higher values sound more positive and cheerful, while lower values sound more negative and moody.)
+    1. Acousticness: {features['acousticness']} (A measure of how acoustic a track is. Values closer to 1 indicate a more acoustic sound.)
+    2. Danceability: {features['danceability']} (This describes how suitable a track is for dancing. Values closer to 1 indicate higher suitability for dancing.)
+    3. Energy: {features['energy']} (Energy is a perceptual measure of intensity and activity. Higher values suggest a more energetic and lively track.)
+    4. Instrumentalness: {features['instrumentalness']} (This predicts whether the track contains no vocals. Values closer to 1 suggest instrumental tracks.)
+    5. Liveness: {features['liveness']} (Liveness detects the presence of an audience. Higher values suggest a live performance.)
+    6. Loudness: {features['loudness']} dB (The overall loudness of the track in decibels.)
+    7. Speechiness: {features['speechiness']} (Speechiness detects spoken words in a track. Values closer to 1 indicate more speech-like qualities.)
+    8. Tempo: {features['tempo']} BPM (The tempo of the track in beats per minute.)
+    9. Valence: {features['valence']} (A measure of the musical positiveness conveyed by the track. Higher values sound more positive and cheerful, while lower values sound more negative and moody.)
 
     Based on these characteristics, suggest appropriate settings like clubs, outdoor events, lounges, or other social environments where this track would resonate the most.
     """
@@ -102,6 +102,50 @@ def recommend_dj_places(features):
         return chat_completion.choices[0].message.content.strip()
     except Exception as e:
         st.error(f"Error generating DJ places recommendation: {str(e)}")
+        return None
+
+# Function to generate a description and DALL-E image for the track based on audio features
+def generate_image_based_on_description(features):
+    description_prompt = f"""
+    Create a description of the track based on the following audio features:
+
+    1. Acousticness: {features['acousticness']}
+    2. Danceability: {features['danceability']}
+    3. Energy: {features['energy']}
+    4. Instrumentalness: {features['instrumentalness']}
+    5. Liveness: {features['liveness']}
+    6. Loudness: {features['loudness']}
+    7. Speechiness: {features['speechiness']}
+    8. Tempo: {features['tempo']} BPM
+    9. Valence: {features['valence']}
+
+    Based on these characteristics, write a brief description of the song.
+    """
+
+    try:
+        # Generate text description
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "user", "content": description_prompt}
+            ],
+            model="gpt-4o-mini"
+        )
+        description = chat_completion.choices[0].message.content.strip()
+
+        # Ensure prompt length is within 1000 characters
+        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
+
+        if len(prompt_instruction) > 1000:
+            prompt_instruction = prompt_instruction[:997] + "..."
+
+        # Generate the image
+        response = client.images.generate(prompt=prompt_instruction, size="1024x1024")
+        image_url = response.data[0].url
+
+        return image_url
+
+    except Exception as e:
+        st.error(f"Error generating image: {str(e)}")
         return None
 
 # Function to get track recommendations based on audio features
@@ -152,31 +196,9 @@ def main():
                     st.success(f"You selected: {selected_track}")
                     track_id = track_options[selected_track]
 
-                    # Get and display audio features
+                    # Get audio features for the selected track
                     features = get_audio_features(track_id, access_token)
                     if features:
-                        st.subheader("Audio Features of the Track")
-                        st.write(features)  # Display audio features
-
                         # Generate DJ places recommendations
                         st.subheader("Where would a DJ play this track?")
-                        dj_places = recommend_dj_places(features)
-                        if dj_places:
-                            st.markdown(f"**Best Places or Settings for this Track:**")
-                            for i, place in enumerate(dj_places.split('\n')):
-                                st.markdown(f"{i+1}. {place}")
-
-                        # Get similar track recommendations
-                        st.subheader("Similar Track Recommendations")
-                        recommendations = get_track_recommendations(track_id, features, access_token)
-                        if recommendations:
-                            for track in recommendations:
-                                track_name = track['name']
-                                artist_name = track['artists'][0]['name']
-                                track_url = track['external_urls']['spotify']
-                                st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
-            else:
-                st.warning("No tracks found for the given search")
-
-if __name__ == "__main__":
-    main()
+                        dj_places = recommend_dj_places
