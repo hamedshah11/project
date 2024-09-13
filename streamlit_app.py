@@ -201,4 +201,12 @@ def main():
                     if features:
                         # Generate DJ places recommendations
                         st.subheader("Where would a DJ play this track?")
-                        dj_places = recommend_dj_places
+                        dj_places = recommend_dj_places(features)
+                        if dj_places:
+                            st.markdown(f"**Best Places or Settings for this Track:**")
+                            for i, place in enumerate(dj_places.split('\n'), 1):
+                                st.markdown(f"{i}. {place}")
+
+                        # Generate an image based on the audio features
+                        st.subheader("Generated Artwork for this Track")
+                        image_url = generate_image
