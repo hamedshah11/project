@@ -209,4 +209,21 @@ def main():
 
                         # Generate an image based on the audio features
                         st.subheader("Generated Artwork for this Track")
-                        image_url = generate_image
+                        image_url = generate_image_based_on_description(features)
+                        if image_url:
+                            st.image(image_url, caption="AI Generated Artwork")
+
+                        # Get similar track recommendations
+                        st.subheader("Similar Track Recommendations")
+                        recommendations = get_track_recommendations(track_id, features, access_token)
+                        if recommendations:
+                            for track in recommendations:
+                                track_name = track['name']
+                                artist_name = track['artists'][0]['name']
+                                track_url = track['external_urls']['spotify']
+                                st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
+            else:
+                st.warning("No tracks found for the given search")
+
+if __name__ == "__main__":
+    main()
