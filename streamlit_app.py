@@ -3,6 +3,7 @@ import streamlit as st
 import requests
 import openai
 from dotenv import load_dotenv
+import plotly.graph_objs as go
 
 # Load environment variables from .env file
 load_dotenv()
@@ -11,6 +12,11 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# Check if environment variables are loaded
+if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET or not OPENAI_API_KEY:
+    st.error("One or more environment variables are missing. Please check your .env file.")
+    st.stop()
 
 # Initialize the OpenAI API key
 openai.api_key = OPENAI_API_KEY
@@ -33,7 +39,7 @@ def get_spotify_access_token():
             access_token = token_info.get("access_token")
             return access_token
         else:
-            st.error(f"Failed to get access token: {response.status_code}")
+            st.error(f"Failed to get access token: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         st.error(f"Error during authentication: {str(e)}")
@@ -56,7 +62,7 @@ def search_tracks(track_name, access_token):
             tracks = response.json().get('tracks', {}).get('items', [])
             return tracks
         else:
-            st.error(f"Error searching for track: {response.status_code}")
+            st.error(f"Error searching for track: {response.status_code} - {response.text}")
             return []
     except Exception as e:
         st.error(f"Error during track search: {str(e)}")
@@ -73,7 +79,7 @@ def get_audio_features(track_id, access_token):
         if response.status_code == 200:
             return response.json()
         else:
-            st.error(f"Error fetching data: {response.status_code}")
+            st.error(f"Error fetching data: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         st.error(f"Error fetching audio features: {str(e)}")
@@ -108,8 +114,11 @@ def recommend_dj_places(features):
         places = chat_completion.choices[0].message.content.strip().split('\n')
         clean_places = [place.lstrip("0123456789. ") for place in places if place]
         return clean_places
+    except openai.error.OpenAIError as e:
+        st.error(f"OpenAI API error: {e}")
+        return None
     except Exception as e:
-        st.error(f"Error generating DJ places recommendation: {str(e)}")
+        st.error(f"Unexpected error: {e}")
         return None
 
 # Function to generate a description and DALL-E image for the track based on audio features
@@ -141,7 +150,7 @@ def generate_image_based_on_description(features):
         description = chat_completion.choices[0].message.content.strip()
 
         # Ensure prompt length is within 1000 characters
-        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
+        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}. The art should capture the mood and essence of the music."
 
         if len(prompt_instruction) > 1000:
             prompt_instruction = prompt_instruction[:997] + "..."
@@ -156,8 +165,11 @@ def generate_image_based_on_description(features):
 
         return image_url
 
+    except openai.error.OpenAIError as e:
+        st.error(f"OpenAI API error: {e}")
+        return None
     except Exception as e:
-        st.error(f"Error generating image: {str(e)}")
+        st.error(f"Unexpected error: {e}")
         return None
 
 # Function to get track recommendations based on audio features
@@ -182,11 +194,37 @@ def get_track_recommendations(track_id, features, access_token):
             recommendations = response.json().get('tracks', [])
             return recommendations
         else:
-            st.error(f"Error fetching recommendations: {response.status_code}")
+            st.error(f"Error fetching recommendations: {response.status_code} - {response.text}")
             return []
     except Exception as e:
         st.error(f"Error fetching recommendations: {str(e)}")
         return []
+
+# Function to visualize audio features
+def visualize_audio_features(features):
+    # Select features to visualize
+    feature_names = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence']
+    feature_values = [features[name] for name in feature_names]
+
+    # Create radar chart
+    fig = go.Figure(data=go.Scatterpolar(
+        r=feature_values + [feature_values[0]],  # Close the loop
+        theta=feature_names + [feature_names[0]],
+        fill='toself'
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 1]
+            )
+        ),
+        showlegend=False,
+        title="Audio Features Radar Chart"
+    )
+
+    st.plotly_chart(fig)
 
 # Main Streamlit app function
 def main():
@@ -212,7 +250,7 @@ def main():
                         'name': track['name'],
                         'artist': track['artists'][0]['name'],
                         'album': track['album']['name'],
-                        'album_art': track['album']['images'][1]['url'] if track['album']['images'] else None
+                        'album_art': track['album']['images'][1]['url'] if len(track['album']['images']) > 1 else None
                     }
                     track_options.append(track_info)
 
@@ -273,34 +311,6 @@ def main():
                                 st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
             else:
                 st.warning("No tracks found for the given search")
-
-# Function to visualize audio features
-def visualize_audio_features(features):
-    import plotly.graph_objs as go
-
-    # Select features to visualize
-    feature_names = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence']
-    feature_values = [features[name] for name in feature_names]
-
-    # Create radar chart
-    fig = go.Figure(data=go.Scatterpolar(
-        r=feature_values + [feature_values[0]],  # Close the loop
-        theta=feature_names + [feature_names[0]],
-        fill='toself'
-    ))
-
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 1]
-            )
-        ),
-        showlegend=False,
-        title="Audio Features Radar Chart"
-    )
-
-    st.plotly_chart(fig)
 
 if __name__ == "__main__":
     main()
