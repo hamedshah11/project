@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import requests
 import openai
+import openai.error  # Import the error module
 from dotenv import load_dotenv
 import plotly.graph_objs as go
 
@@ -111,7 +112,8 @@ def recommend_dj_places(features):
             ]
         )
         # Process the response to remove any numbering from the model's output
-        places = chat_completion.choices[0].message.content.strip().split('\n')
+        response_text = chat_completion.choices[0].message.content.strip()
+        places = response_text.split('\n')
         clean_places = [place.lstrip("0123456789. ") for place in places if place]
         return clean_places
     except openai.error.OpenAIError as e:
@@ -250,7 +252,7 @@ def main():
                         'name': track['name'],
                         'artist': track['artists'][0]['name'],
                         'album': track['album']['name'],
-                        'album_art': track['album']['images'][1]['url'] if len(track['album']['images']) > 1 else None
+                        'album_art': track['album']['images'][0]['url'] if len(track['album']['images']) > 0 else None
                     }
                     track_options.append(track_info)
 
@@ -311,6 +313,10 @@ def main():
                                 st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
             else:
                 st.warning("No tracks found for the given search")
+        else:
+            st.error("Failed to obtain Spotify access token.")
+    else:
+        st.info("Please enter a track name to begin.")
 
 if __name__ == "__main__":
     main()
