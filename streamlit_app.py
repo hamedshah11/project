@@ -106,10 +106,10 @@ def recommend_dj_places(features):
         st.error(f"Error generating DJ places recommendation: {str(e)}")
         return None
 
-# Function to generate a description and DALL-E image for the track based on audio features
+# Function to generate a brief description and DALL-E image for the track based on audio features
 def generate_image_based_on_description(features):
     description_prompt = f"""
-    Create a description of the track based on the following audio features:
+    Create a single, intriguing sentence to describe the track based on the following audio features:
 
     1. Acousticness: {features['acousticness']}
     2. Danceability: {features['danceability']}
@@ -121,7 +121,7 @@ def generate_image_based_on_description(features):
     8. Tempo: {features['tempo']} BPM
     9. Valence: {features['valence']}
 
-    Based on these characteristics, write a brief description of the song.
+    Summarize the song in one captivating sentence.
     """
 
     try:
@@ -226,7 +226,7 @@ def main():
                             st.subheader("🎨 Generated Artwork for this Track")
                             description, image_url = generate_image_based_on_description(features)
                             if description:
-                                st.markdown(f"**Description of the Track:** {description}")
+                                st.markdown(f"**Track Description:** {description}")
                             if image_url:
                                 st.image(image_url, caption="AI Generated Artwork")
 
