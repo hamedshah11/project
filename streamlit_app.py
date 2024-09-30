@@ -89,7 +89,7 @@ def recommend_dj_places(features):
     8. Tempo: {features['tempo']} BPM
     9. Valence: {features['valence']}
 
-    Suggest unique settings (clubs, lounges, outdoor festivals, intimate settings, etc.) based on the energy, mood, and vibe of the song.
+    Suggest unique settings based on the energy, mood, and vibe of the song. Output should only be the 4 places numbered 1-4, nothing else.
     """
 
     try:
