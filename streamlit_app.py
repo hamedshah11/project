@@ -2,7 +2,7 @@ import os
 import streamlit as st
 import requests
 import openai
-import openai.error  # Import the error module
+from openai.error import OpenAIError  # Import OpenAIError directly
 from dotenv import load_dotenv
 import plotly.graph_objs as go
 
@@ -116,7 +116,7 @@ def recommend_dj_places(features):
         places = response_text.split('\n')
         clean_places = [place.lstrip("0123456789. ") for place in places if place]
         return clean_places
-    except openai.error.OpenAIError as e:
+    except OpenAIError as e:
         st.error(f"OpenAI API error: {e}")
         return None
     except Exception as e:
@@ -167,7 +167,7 @@ def generate_image_based_on_description(features):
 
         return image_url
 
-    except openai.error.OpenAIError as e:
+    except OpenAIError as e:
         st.error(f"OpenAI API error: {e}")
         return None
     except Exception as e:
