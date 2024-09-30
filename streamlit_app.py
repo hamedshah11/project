@@ -1,10 +1,8 @@
 import os
 import streamlit as st
 import requests
-import openai
-from openai.error import OpenAIError  # Import OpenAIError directly
+from openai import OpenAI
 from dotenv import load_dotenv
-import plotly.graph_objs as go
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,13 +12,8 @@ SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# Check if environment variables are loaded
-if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET or not OPENAI_API_KEY:
-    st.error("One or more environment variables are missing. Please check your .env file.")
-    st.stop()
-
-# Initialize the OpenAI API key
-openai.api_key = OPENAI_API_KEY
+# Initialize the OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
@@ -40,7 +33,7 @@ def get_spotify_access_token():
             access_token = token_info.get("access_token")
             return access_token
         else:
-            st.error(f"Failed to get access token: {response.status_code} - {response.text}")
+            st.error(f"Failed to get access token: {response.status_code}")
             return None
     except Exception as e:
         st.error(f"Error during authentication: {str(e)}")
@@ -49,21 +42,16 @@ def get_spotify_access_token():
 # Function to search for tracks by name
 def search_tracks(track_name, access_token):
     try:
-        url = "https://api.spotify.com/v1/search"
+        url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=5"
         headers = {
             'Authorization': f'Bearer {access_token}'
         }
-        params = {
-            'q': track_name,
-            'type': 'track',
-            'limit': 5
-        }
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
             tracks = response.json().get('tracks', {}).get('items', [])
             return tracks
         else:
-            st.error(f"Error searching for track: {response.status_code} - {response.text}")
+            st.error(f"Error searching for track: {response.status_code}")
             return []
     except Exception as e:
         st.error(f"Error during track search: {str(e)}")
@@ -80,7 +68,7 @@ def get_audio_features(track_id, access_token):
         if response.status_code == 200:
             return response.json()
         else:
-            st.error(f"Error fetching data: {response.status_code} - {response.text}")
+            st.error(f"Error fetching data: {response.status_code}")
             return None
     except Exception as e:
         st.error(f"Error fetching audio features: {str(e)}")
@@ -91,36 +79,32 @@ def recommend_dj_places(features):
     description_prompt = f"""
     Based on the following audio features of the track, suggest the top 3-4 places or settings where a DJ could play this track, focusing on the overall feel and mood of the song, not just its tempo:
 
-    1. Acousticness: {features['acousticness']} (A measure of how acoustic a track is.)
-    2. Danceability: {features['danceability']} (Suitability for dancing.)
-    3. Energy: {features['energy']} (Intensity and activity.)
-    4. Instrumentalness: {features['instrumentalness']} (Presence of vocals.)
-    5. Liveness: {features['liveness']} (Presence of an audience.)
-    6. Loudness: {features['loudness']} dB (Overall loudness.)
-    7. Speechiness: {features['speechiness']} (Presence of spoken words.)
-    8. Tempo: {features['tempo']} BPM (Speed of the track.)
-    9. Valence: {features['valence']} (Musical positiveness.)
+    1. Acousticness: {features['acousticness']} (A measure of how acoustic a track is. Values closer to 1 indicate a more acoustic sound, while values closer to 0 suggest a more electronic sound.)
+    2. Danceability: {features['danceability']} (Describes how suitable a track is for dancing. Values closer to 1 indicate higher suitability for dancing, while lower values suggest a more relaxed, less dance-oriented feel.)
+    3. Energy: {features['energy']} (Energy is a perceptual measure of intensity and activity. Higher values suggest a more energetic and lively track, while lower values suggest a more calm or subdued feel.)
+    4. Instrumentalness: {features['instrumentalness']} (This predicts whether the track contains vocals. Values closer to 1 suggest an instrumental track, while lower values suggest the presence of vocals.)
+    5. Liveness: {features['liveness']} (Detects the presence of an audience. Higher values suggest a live performance, while lower values indicate a studio recording.)
+    6. Loudness: {features['loudness']} dB (The overall loudness of the track. Higher values are often associated with more intense, high-energy tracks, while lower values may suggest softer, more intimate tracks.)
+    7. Speechiness: {features['speechiness']} (Speechiness detects the presence of spoken words. Higher values suggest more spoken word content, while lower values suggest less.)
+    8. Tempo: {features['tempo']} BPM (The speed of the track. Higher tempos are typically associated with upbeat, fast-paced genres, while slower tempos may suggest more relaxing, downtempo genres.)
+    9. Valence: {features['valence']} (A measure of the musical positiveness conveyed by the track. Higher values sound more positive, happy, and cheerful, while lower values sound more negative, moody, or sad.)
 
     Focus on the feel of the track, considering how the combination of these features would influence the environment where it could be best played. Suggest unique settings (clubs, lounges, outdoor festivals, intimate settings, etc.) based on the energy, mood, and vibe of the song.
     """
 
     try:
-        chat_completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "user", "content": description_prompt}
-            ]
+            ],
+            model="gpt-4o-mini"
         )
         # Process the response to remove any numbering from the model's output
-        response_text = chat_completion.choices[0].message.content.strip()
-        places = response_text.split('\n')
-        clean_places = [place.lstrip("0123456789. ") for place in places if place]
+        places = chat_completion.choices[0].message.content.strip().split('\n')
+        clean_places = [place.lstrip("0123456789. ") for place in places if place]  # Remove any unwanted numbers
         return clean_places
-    except OpenAIError as e:
-        st.error(f"OpenAI API error: {e}")
-        return None
     except Exception as e:
-        st.error(f"Unexpected error: {e}")
+        st.error(f"Error generating DJ places recommendation: {str(e)}")
         return None
 
 # Function to generate a description and DALL-E image for the track based on audio features
@@ -143,50 +127,41 @@ def generate_image_based_on_description(features):
 
     try:
         # Generate text description
-        chat_completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "user", "content": description_prompt}
-            ]
+            ],
+            model="gpt-4o-mini"
         )
         description = chat_completion.choices[0].message.content.strip()
 
         # Ensure prompt length is within 1000 characters
-        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}. The art should capture the mood and essence of the music."
+        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
 
         if len(prompt_instruction) > 1000:
             prompt_instruction = prompt_instruction[:997] + "..."
 
         # Generate the image
-        response = openai.Image.create(
-            prompt=prompt_instruction,
-            n=1,
-            size="1024x1024"
-        )
-        image_url = response['data'][0]['url']
+        response = client.images.generate(prompt=prompt_instruction, size="1024x1024")
+        image_url = response.data[0].url
 
         return image_url
 
-    except OpenAIError as e:
-        st.error(f"OpenAI API error: {e}")
-        return None
     except Exception as e:
-        st.error(f"Unexpected error: {e}")
+        st.error(f"Error generating image: {str(e)}")
         return None
 
 # Function to get track recommendations based on audio features
 def get_track_recommendations(track_id, features, access_token):
     try:
-        url = "https://api.spotify.com/v1/recommendations"
+        url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
         params = {
-            "seed_tracks": track_id,
-            "limit": 10,
-            "min_energy": max(0, features['energy'] - 0.1),
-            "max_energy": min(1, features['energy'] + 0.1),
-            "min_tempo": max(0, features['tempo'] - 10),
+            "min_energy": features['energy'] - 0.1,
+            "max_energy": features['energy'] + 0.1,
+            "min_tempo": features['tempo'] - 10,
             "max_tempo": features['tempo'] + 10,
-            "min_danceability": max(0, features['danceability'] - 0.1),
-            "max_danceability": min(1, features['danceability'] + 0.1)
+            "min_danceability": features['danceability'] - 0.1,
+            "max_danceability": features['danceability'] + 0.1
         }
         headers = {
             'Authorization': f'Bearer {access_token}'
@@ -196,37 +171,11 @@ def get_track_recommendations(track_id, features, access_token):
             recommendations = response.json().get('tracks', [])
             return recommendations
         else:
-            st.error(f"Error fetching recommendations: {response.status_code} - {response.text}")
+            st.error(f"Error fetching recommendations: {response.status_code}")
             return []
     except Exception as e:
         st.error(f"Error fetching recommendations: {str(e)}")
         return []
-
-# Function to visualize audio features
-def visualize_audio_features(features):
-    # Select features to visualize
-    feature_names = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence']
-    feature_values = [features[name] for name in feature_names]
-
-    # Create radar chart
-    fig = go.Figure(data=go.Scatterpolar(
-        r=feature_values + [feature_values[0]],  # Close the loop
-        theta=feature_names + [feature_names[0]],
-        fill='toself'
-    ))
-
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 1]
-            )
-        ),
-        showlegend=False,
-        title="Audio Features Radar Chart"
-    )
-
-    st.plotly_chart(fig)
 
 # Main Streamlit app function
 def main():
@@ -240,71 +189,36 @@ def main():
         access_token = get_spotify_access_token()
         if access_token:
             # Search for the track
-            with st.spinner('Searching for tracks...'):
-                tracks = search_tracks(track_name, access_token)
+            tracks = search_tracks(track_name, access_token)
             if tracks:
-                st.subheader("Select the correct track")
-                # Display track options with album art
-                track_options = []
-                for idx, track in enumerate(tracks):
-                    track_info = {
-                        'id': track['id'],
-                        'name': track['name'],
-                        'artist': track['artists'][0]['name'],
-                        'album': track['album']['name'],
-                        'album_art': track['album']['images'][0]['url'] if len(track['album']['images']) > 0 else None
-                    }
-                    track_options.append(track_info)
-
-                # Display tracks with images
-                selected_track_id = None
-                for idx, track in enumerate(track_options):
-                    st.write(f"**{idx+1}. {track['name']}** by {track['artist']}")
-                    if track['album_art']:
-                        st.image(track['album_art'], width=100)
-                    st.write(f"Album: {track['album']}")
-                    st.write("---")
-
-                selected_index = st.number_input(
-                    "Enter the number of the correct track",
-                    min_value=1,
-                    max_value=len(track_options),
-                    step=1
-                ) - 1
-
-                if selected_index is not None and 0 <= selected_index < len(track_options):
-                    selected_track = track_options[selected_index]
-                    st.success(f"You selected: {selected_track['name']} by {selected_track['artist']}")
-                    track_id = selected_track['id']
+                # Create a selectbox for user to choose the correct track
+                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
+                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
+                
+                if selected_track:
+                    st.success(f"You selected: {selected_track}")
+                    track_id = track_options[selected_track]
 
                     # Get audio features for the selected track
-                    with st.spinner('Fetching audio features...'):
-                        features = get_audio_features(track_id, access_token)
+                    features = get_audio_features(track_id, access_token)
                     if features:
-                        # Visualize audio features
-                        st.subheader("Audio Features Visualization")
-                        visualize_audio_features(features)
-
                         # Generate DJ places recommendations
                         st.subheader("Where would a DJ play this track?")
-                        with st.spinner('Generating recommendations...'):
-                            dj_places = recommend_dj_places(features)
+                        dj_places = recommend_dj_places(features)
                         if dj_places:
                             st.markdown(f"**Best Places or Settings for this Track:**")
-                            for i, place in enumerate(dj_places, 1):
+                            for i, place in enumerate(dj_places, 1):  # Manually number the places
                                 st.markdown(f"{i}. {place}")
 
                         # Generate an image based on the audio features
                         st.subheader("Generated Artwork for this Track")
-                        with st.spinner('Generating artwork...'):
-                            image_url = generate_image_based_on_description(features)
+                        image_url = generate_image_based_on_description(features)
                         if image_url:
                             st.image(image_url, caption="AI Generated Artwork")
 
                         # Get similar track recommendations
                         st.subheader("Similar Track Recommendations")
-                        with st.spinner('Fetching recommendations...'):
-                            recommendations = get_track_recommendations(track_id, features, access_token)
+                        recommendations = get_track_recommendations(track_id, features, access_token)
                         if recommendations:
                             for track in recommendations:
                                 track_name = track['name']
@@ -313,10 +227,6 @@ def main():
                                 st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
             else:
                 st.warning("No tracks found for the given search")
-        else:
-            st.error("Failed to obtain Spotify access token.")
-    else:
-        st.info("Please enter a track name to begin.")
 
 if __name__ == "__main__":
     main()
