@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import requests
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -12,8 +12,11 @@ SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# Initialize the OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Set OpenAI API key
+openai.api_key = OPENAI_API_KEY
+
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY is not set. Please provide it in the environment or via GitHub Secrets.")
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
@@ -93,14 +96,14 @@ def recommend_dj_places(features):
     """
 
     try:
-        chat_completion = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
             messages=[
                 {"role": "user", "content": description_prompt}
-            ],
-            model="gpt-4o-mini"
+            ]
         )
-        places = chat_completion.choices[0].message.content.strip().split('\n')
-        clean_places = [place.lstrip("0123456789. ") for place in places if place]  # Remove any unwanted numbers
+        places = response['choices'][0]['message']['content'].strip().split('\n')
+        clean_places = [place.lstrip("0123456789. ") for place in places if place]
         return clean_places
     except Exception as e:
         st.error(f"Error generating DJ places recommendation: {str(e)}")
@@ -126,20 +129,24 @@ def generate_image_based_on_description(features):
 
     try:
         # Generate text description
-        chat_completion = client.chat.completions.create(
+        text_response = openai.ChatCompletion.create(
+            model="gpt-4",
             messages=[
                 {"role": "user", "content": description_prompt}
-            ],
-            model="gpt-4o-mini"
+            ]
         )
-        description = chat_completion.choices[0].message.content.strip()
+        description = text_response['choices'][0]['message']['content'].strip()
 
         # Generate the image prompt
-        prompt_instruction = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
+        image_prompt = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
 
         # Generate the image
-        response = client.images.generate(prompt=prompt_instruction, size="1024x1024")
-        image_url = response.data[0].url
+        image_response = openai.Image.create(
+            prompt=image_prompt,
+            n=1,
+            size="1024x1024"
+        )
+        image_url = image_response['data'][0]['url']
 
         return description, image_url
 
@@ -152,12 +159,12 @@ def get_track_recommendations(track_id, features, access_token):
     try:
         url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
         params = {
-            "min_energy": features['energy'] - 0.1,
-            "max_energy": features['energy'] + 0.1,
-            "min_tempo": features['tempo'] - 10,
+            "min_energy": max(features['energy'] - 0.1, 0),
+            "max_energy": min(features['energy'] + 0.1, 1),
+            "min_tempo": max(features['tempo'] - 10, 0),
             "max_tempo": features['tempo'] + 10,
-            "min_danceability": features['danceability'] - 0.1,
-            "max_danceability": features['danceability'] + 0.1
+            "min_danceability": max(features['danceability'] - 0.1, 0),
+            "max_danceability": min(features['danceability'] + 0.1, 1)
         }
         headers = {
             'Authorization': f'Bearer {access_token}'
@@ -178,7 +185,7 @@ def main():
     st.set_page_config(page_title="DJAI - The DJ's AI Assistant", layout="wide")
 
     # Title
-    st.title("🎶 DJAI - The DJ's AI Assistant")
+    st.title("\ud83c\udfb6 DJAI - The DJ's AI Assistant")
     st.markdown("This app helps DJs discover the perfect settings for their tracks, generate visuals based on track audio features, and find similar music.")
 
     # Input for the track name
@@ -212,10 +219,10 @@ def main():
                     if features:
                         # Display track details and recommendations in columns
                         col1, col2 = st.columns([2, 1])
-                        
+
                         with col1:
                             # Generate DJ places recommendations
-                            st.subheader("🎧 Where would a DJ play this track?")
+                            st.subheader("\ud83c\udfa7 Where would a DJ play this track?")
                             dj_places = recommend_dj_places(features)
                             if dj_places:
                                 st.markdown("**Best Places or Settings for this Track:**")
@@ -223,7 +230,7 @@ def main():
                                     st.markdown(f"{i}. {place}")
 
                             # Generate an image based on the audio features
-                            st.subheader("🎨 Generated Artwork for this Track")
+                            st.subheader("\ud83c\udfa8 Generated Artwork for this Track")
                             description, image_url = generate_image_based_on_description(features)
                             if description:
                                 st.markdown(f"**Track Description:** {description}")
@@ -232,7 +239,7 @@ def main():
 
                         with col2:
                             # Get similar track recommendations
-                            st.subheader("🎵 Similar Track Recommendations")
+                            st.subheader("\ud83c\udfb5 Similar Track Recommendations")
                             recommendations = get_track_recommendations(track_id, features, access_token)
                             if recommendations:
                                 for track in recommendations:
