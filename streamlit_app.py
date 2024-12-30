@@ -7,16 +7,20 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Spotify and OpenAI API credentials from environment variables
+# Spotify API credentials from environment variables
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# OpenAI API key from Streamlit secrets
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # Set OpenAI API key
 openai.api_key = OPENAI_API_KEY
 
 if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY is not set. Please provide it in the environment or via GitHub Secrets.")
+    raise ValueError("OPENAI_API_KEY is not set in secrets.")
+if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+    raise ValueError("Spotify credentials are not set in .env file.")
 
 # Function to get Spotify access token using Client Credentials Flow
 def get_spotify_access_token():
@@ -154,32 +158,6 @@ def generate_image_based_on_description(features):
         st.error(f"Error generating image: {str(e)}")
         return None, None
 
-# Function to get track recommendations based on audio features
-def get_track_recommendations(track_id, features, access_token):
-    try:
-        url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit=10"
-        params = {
-            "min_energy": max(features['energy'] - 0.1, 0),
-            "max_energy": min(features['energy'] + 0.1, 1),
-            "min_tempo": max(features['tempo'] - 10, 0),
-            "max_tempo": features['tempo'] + 10,
-            "min_danceability": max(features['danceability'] - 0.1, 0),
-            "max_danceability": min(features['danceability'] + 0.1, 1)
-        }
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        response = requests.get(url, headers=headers, params=params)
-        if response.status_code == 200:
-            recommendations = response.json().get('tracks', [])
-            return recommendations
-        else:
-            st.error(f"Error fetching recommendations: {response.status_code}")
-            return []
-    except Exception as e:
-        st.error(f"Error fetching recommendations: {str(e)}")
-        return []
-
 # Main Streamlit app function
 def main():
     st.set_page_config(page_title="DJAI - The DJ's AI Assistant", layout="wide")
@@ -226,7 +204,7 @@ def main():
                             dj_places = recommend_dj_places(features)
                             if dj_places:
                                 st.markdown("**Best Places or Settings for this Track:**")
-                                for i, place in enumerate(dj_places, 1):  # Manually number the places
+                                for i, place in enumerate(dj_places, 1):
                                     st.markdown(f"{i}. {place}")
 
                             # Generate an image based on the audio features
@@ -240,7 +218,7 @@ def main():
                         with col2:
                             # Get similar track recommendations
                             st.subheader("\ud83c\udfb5 Similar Track Recommendations")
-                            recommendations = get_track_recommendations(track_id, features, access_token)
+                            recommendations = search_tracks(track_name, access_token)
                             if recommendations:
                                 for track in recommendations:
                                     track_name = track['name']
