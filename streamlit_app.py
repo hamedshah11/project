@@ -11,14 +11,14 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 
-# OpenAI API key from environment variables
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# OpenAI API key from Streamlit secrets
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # Set OpenAI API key
 openai.api_key = OPENAI_API_KEY
 
 if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY is not set in environment secrets.")
+    raise ValueError("OPENAI_API_KEY is not set in Streamlit secrets.")
 if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
     raise ValueError("Spotify credentials are not set in .env file.")
 
