@@ -3,7 +3,7 @@ name: Deploy Streamlit App
 on:
   push:
     branches:
-      - main  # Runs this workflow whenever you push to the `main` branch
+      - main
 
 jobs:
   deploy:
@@ -23,5 +23,5 @@ jobs:
 
       - name: Run Streamlit App
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Securely pass OpenAI API key
-        run: streamlit run app.py  # Replace `app.py` with your main Streamlit script
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: streamlit run streamlit_app.py
