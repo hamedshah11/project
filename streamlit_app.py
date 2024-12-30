@@ -35,12 +35,17 @@ def get_spotify_access_token():
             "Content-Type": "application/x-www-form-urlencoded"
         }
         response = requests.post(url, headers=headers, data=data)
+
+        # Log response for debugging
+        st.write("Response Status Code:", response.status_code)
+        st.write("Response Body:", response.json())
+
         if response.status_code == 200:
             token_info = response.json()
             access_token = token_info.get("access_token")
             return access_token
         else:
-            st.error(f"Failed to get access token: {response.status_code}")
+            st.error(f"Failed to get access token: {response.status_code}, {response.json()}")
             return None
     except Exception as e:
         st.error(f"Error during authentication: {str(e)}")
@@ -58,7 +63,7 @@ def search_tracks(track_name, access_token):
             tracks = response.json().get('tracks', {}).get('items', [])
             return tracks
         else:
-            st.error(f"Error searching for track: {response.status_code}")
+            st.error(f"Error searching for track: {response.status_code}, {response.json()}")
             return []
     except Exception as e:
         st.error(f"Error during track search: {str(e)}")
@@ -75,7 +80,7 @@ def get_audio_features(track_id, access_token):
         if response.status_code == 200:
             return response.json()
         else:
-            st.error(f"Error fetching data: {response.status_code}")
+            st.error(f"Error fetching data: {response.status_code}, {response.json()}")
             return None
     except Exception as e:
         st.error(f"Error fetching audio features: {str(e)}")
