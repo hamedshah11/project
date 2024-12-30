@@ -163,7 +163,7 @@ def main():
     st.set_page_config(page_title="DJAI - The DJ's AI Assistant", layout="wide")
 
     # Title
-    st.title("\ud83c\udfb6 DJAI - The DJ's AI Assistant")
+    st.title("🎶 DJAI - The DJ's AI Assistant")
     st.markdown("This app helps DJs discover the perfect settings for their tracks, generate visuals based on track audio features, and find similar music.")
 
     # Input for the track name
@@ -200,7 +200,7 @@ def main():
 
                         with col1:
                             # Generate DJ places recommendations
-                            st.subheader("\ud83c\udfa7 Where would a DJ play this track?")
+                            st.subheader("🎧 Where would a DJ play this track?")
                             dj_places = recommend_dj_places(features)
                             if dj_places:
                                 st.markdown("**Best Places or Settings for this Track:**")
@@ -208,7 +208,7 @@ def main():
                                     st.markdown(f"{i}. {place}")
 
                             # Generate an image based on the audio features
-                            st.subheader("\ud83c\udfa8 Generated Artwork for this Track")
+                            st.subheader("🎨 Generated Artwork for this Track")
                             description, image_url = generate_image_based_on_description(features)
                             if description:
                                 st.markdown(f"**Track Description:** {description}")
@@ -217,7 +217,7 @@ def main():
 
                         with col2:
                             # Get similar track recommendations
-                            st.subheader("\ud83c\udfb5 Similar Track Recommendations")
+                            st.subheader("🎵 Similar Track Recommendations")
                             recommendations = search_tracks(track_name, access_token)
                             if recommendations:
                                 for track in recommendations:
