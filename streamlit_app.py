@@ -9,7 +9,7 @@ load_dotenv()
 
 # Spotify API credentials from environment variables
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
-SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
+SPOTIFY_CLIENT_SECRET = ca53d594b51040a68325bf2623cd7572
 
 # OpenAI API key from Streamlit secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
