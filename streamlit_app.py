@@ -34,9 +34,13 @@ def get_spotify_access_token():
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
-        response = requests.post(url, headers=headers, data=data)
 
-        # Log response for debugging
+        # Debugging logs
+        st.write("Client ID:", SPOTIFY_CLIENT_ID)
+        st.write("Client Secret:", SPOTIFY_CLIENT_SECRET)
+        st.write("Requesting token...")
+
+        response = requests.post(url, headers=headers, data=data)
         st.write("Response Status Code:", response.status_code)
         st.write("Response Body:", response.json())
 
