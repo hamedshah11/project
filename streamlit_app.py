@@ -34,7 +34,7 @@ def get_spotify_access_token():
     if response.status_code == 200:
         return response.json().get("access_token")
     else:
-        st.error(f"Failed to get access token: {response.status_code}, {response.json()}")
+        st.error(f"Failed to get access token: {response.status_code}, {response.text}")
         return None
 
 def search_tracks(track_name, access_token):
@@ -45,7 +45,7 @@ def search_tracks(track_name, access_token):
     if response.status_code == 200:
         return response.json().get("tracks", {}).get("items", [])
     else:
-        st.error(f"Error searching for track: {response.status_code}, {response.json()}")
+        st.error(f"Error searching for track: {response.status_code}, {response.text}")
         return []
 
 def get_artist_top_tracks(artist_id, access_token, country="US"):
@@ -56,32 +56,19 @@ def get_artist_top_tracks(artist_id, access_token, country="US"):
     if response.status_code == 200:
         return response.json().get("tracks", [])
     else:
-        st.error(f"Error retrieving artist top tracks: {response.status_code}, {response.json()}")
+        st.error(f"Error retrieving artist top tracks: {response.status_code}, {response.text}")
         return []
 
-def get_recommendations(track_id, access_token, limit=5):
-    """Retrieves track recommendations based on a seed track."""
-    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit={limit}"
+def get_artist_albums(artist_id, access_token, include_groups="album,single", limit=10, market="US"):
+    """Retrieves albums for a given artist."""
+    url = f"https://api.spotify.com/v1/artists/{artist_id}/albums?include_groups={include_groups}&limit={limit}&market={market}"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
-    
-    # Check if the response text is empty or contains a known message.
-    if not response.text or "No similar track recommendations found" in response.text:
-        st.warning("No similar track recommendations found.")
-        return []
-    
-    try:
-        data = response.json()
-    except Exception as e:
-        st.error(f"Error parsing JSON for recommendations: {str(e)}. Raw response: {response.text}")
-        return []
-    
     if response.status_code == 200:
-        return data.get("tracks", [])
+        return response.json().get("items", [])
     else:
-        st.error(f"Error retrieving recommendations: {response.status_code}, {data}")
+        st.error(f"Error retrieving artist albums: {response.status_code}, {response.text}")
         return []
-
 
 # --- Web Search Placeholder ---
 def search_web(query):
@@ -168,6 +155,27 @@ def display_popularity_chart(tracks, title="Track Popularity"):
     ).properties(title=title, width=600, height=400)
     st.altair_chart(chart)
 
+# --- Display Artist's Albums ---
+def display_artist_albums(albums):
+    """
+    Displays the artist's albums as a grid of album covers with album name and release date.
+    """
+    if not albums:
+        st.warning("No albums found for this artist.")
+        return
+
+    cols = st.columns(3)
+    for i, album in enumerate(albums):
+        # Use the first image in the album's "images" list if available.
+        image_url = album.get("images", [{}])[0].get("url", None)
+        album_name = album.get("name", "Unknown Album")
+        release_date = album.get("release_date", "Unknown Date")
+        with cols[i % 3]:
+            if image_url:
+                st.image(image_url, use_column_width=True)
+            st.write(f"**{album_name}**")
+            st.write(f"Release Date: {release_date}")
+
 # --- Main Streamlit App ---
 def main():
     st.set_page_config(page_title="Holistic Track Insight Dashboard", layout="wide")
@@ -176,7 +184,7 @@ def main():
         """
         This app aggregates Spotify track data with web context and leverages an LLM to provide a multi-dimensional
         understanding of a track. You’ll get insights into the track’s vibe, creative venue suggestions, and additional 
-        visual analytics on related tracks.
+        visual analytics on related tracks and the artist's discography.
         """
     )
     
@@ -216,8 +224,7 @@ def main():
             st.error("Failed to generate suggestions.")
         progress.progress(80)
         
-        # Display other visual analytics:
-        # Other Tracks by Same Artist
+        # Visual Analytics: Other Tracks by Same Artist
         st.subheader("Other Tracks by the Same Artist")
         artist_id = selected_track["artists"][0]["id"]
         artist_tracks = get_artist_top_tracks(artist_id, access_token)
@@ -226,14 +233,10 @@ def main():
         else:
             st.warning("No additional tracks found for the artist.")
         
-        # Similar Track Recommendations
-        st.subheader("Similar Track Recommendations")
-        selected_track_id = selected_track["id"]
-        recommended_tracks = get_recommendations(selected_track_id, access_token, limit=5)
-        if recommended_tracks:
-            display_popularity_chart(recommended_tracks, title="Recommended Tracks Popularity")
-        else:
-            st.warning("No similar track recommendations found.")
+        # New Feature: Display Artist's Albums
+        st.subheader("Artist's Albums")
+        albums = get_artist_albums(artist_id, access_token)
+        display_artist_albums(albums)
         
         progress.progress(100)
 
