@@ -4,7 +4,7 @@ import requests
 from dotenv import load_dotenv
 import altair as alt
 import pandas as pd
-from openai import OpenAI  # New SDK: instantiate a client
+from openai import OpenAI
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +25,7 @@ if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Spotify Functions ---
+
 def get_spotify_access_token():
     """Gets an access token using Spotify's Client Credentials flow."""
     url = "https://accounts.spotify.com/api/token"
@@ -45,6 +46,28 @@ def search_tracks(track_name, access_token):
         return response.json().get("tracks", {}).get("items", [])
     else:
         st.error(f"Error searching for track: {response.status_code}, {response.json()}")
+        return []
+
+def get_artist_top_tracks(artist_id, access_token, country="US"):
+    """Retrieves the top tracks for a given artist."""
+    url = f"https://api.spotify.com/v1/artists/{artist_id}/top-tracks?country={country}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json().get("tracks", [])
+    else:
+        st.error(f"Error retrieving artist top tracks: {response.status_code}, {response.json()}")
+        return []
+
+def get_recommendations(track_id, access_token, limit=5):
+    """Retrieves track recommendations based on a seed track."""
+    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit={limit}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json().get("tracks", [])
+    else:
+        st.error(f"Error retrieving recommendations: {response.status_code}, {response.json()}")
         return []
 
 # --- Web Search Placeholder ---
@@ -96,9 +119,8 @@ def generate_llm_suggestions_stream(aggregated_context):
         f"{aggregated_context}"
     )
     try:
-        # Stream the chat completion response
         stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Use a supported model
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt}
@@ -110,7 +132,6 @@ def generate_llm_suggestions_stream(aggregated_context):
         full_text = ""
         placeholder = st.empty()
         for chunk in stream:
-            # In the new SDK, responses are pydantic models.
             delta = chunk.choices[0].delta
             if delta and delta.content:
                 full_text += delta.content
@@ -121,7 +142,7 @@ def generate_llm_suggestions_stream(aggregated_context):
         return None
 
 # --- Visual Analytics: Simple Popularity Chart ---
-def display_popularity_chart(tracks):
+def display_popularity_chart(tracks, title="Track Popularity"):
     """
     Displays a simple bar chart of track popularity.
     """
@@ -131,7 +152,7 @@ def display_popularity_chart(tracks):
         x=alt.X("Track:N", sort='-y'),
         y="Popularity:Q",
         tooltip=["Track", "Popularity"]
-    ).properties(width=600, height=400)
+    ).properties(title=title, width=600, height=400)
     st.altair_chart(chart)
 
 # --- Main Streamlit App ---
@@ -141,7 +162,8 @@ def main():
     st.markdown(
         """
         This app aggregates Spotify track data with web context and leverages an LLM to provide a multi-dimensional
-        understanding of a track. You’ll get insights into the track’s vibe, creative venue suggestions, and visual analytics.
+        understanding of a track. You’ll get insights into the track’s vibe, creative venue suggestions, and additional 
+        visual analytics on related tracks.
         """
     )
     
@@ -181,9 +203,25 @@ def main():
             st.error("Failed to generate suggestions.")
         progress.progress(80)
         
-        # Display a simple popularity chart for the search results.
-        st.subheader("Track Popularity Comparison")
-        display_popularity_chart(tracks)
+        # Display other visual analytics:
+        # Other Tracks by Same Artist
+        st.subheader("Other Tracks by the Same Artist")
+        artist_id = selected_track["artists"][0]["id"]
+        artist_tracks = get_artist_top_tracks(artist_id, access_token)
+        if artist_tracks:
+            display_popularity_chart(artist_tracks, title="Artist Top Tracks Popularity")
+        else:
+            st.warning("No additional tracks found for the artist.")
+        
+        # Similar Track Recommendations
+        st.subheader("Similar Track Recommendations")
+        selected_track_id = selected_track["id"]
+        recommended_tracks = get_recommendations(selected_track_id, access_token, limit=5)
+        if recommended_tracks:
+            display_popularity_chart(recommended_tracks, title="Recommended Tracks Popularity")
+        else:
+            st.warning("No similar track recommendations found.")
+        
         progress.progress(100)
 
 if __name__ == "__main__":
