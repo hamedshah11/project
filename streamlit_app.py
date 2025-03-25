@@ -64,10 +64,15 @@ def get_recommendations(track_id, access_token, limit=5):
     url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit={limit}"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
+    try:
+        data = response.json()
+    except Exception as e:
+        st.error(f"Error parsing JSON for recommendations: {str(e)}. Raw response: {response.text}")
+        return []
     if response.status_code == 200:
-        return response.json().get("tracks", [])
+        return data.get("tracks", [])
     else:
-        st.error(f"Error retrieving recommendations: {response.status_code}, {response.json()}")
+        st.error(f"Error retrieving recommendations: {response.status_code}, {data}")
         return []
 
 # --- Web Search Placeholder ---
