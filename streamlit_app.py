@@ -50,12 +50,12 @@ def search_tracks(track_name, access_token):
 def search_web(query):
     """
     Placeholder function to simulate a web search.
-    Replace this with an actual web search API (e.g., SerpAPI) call.
+    Replace this with an actual web search API call.
     """
     dummy_context = (
         f"Recent articles, reviews, and social media posts suggest that '{query}' is characterized by "
-        "a vibrant energy, catchy hooks, and an urban club vibe. Listeners often describe it as a blend "
-        "of pop and electronic music, popular in festival and lounge settings."
+        "vibrant energy, catchy hooks, and an urban club vibe. Listeners describe it as a blend of pop "
+        "and electronic music, ideal for festival and lounge settings."
     )
     return dummy_context
 
@@ -82,10 +82,11 @@ def aggregate_track_context(track):
     )
     return aggregated_context
 
-# --- LLM Synthesis ---
+# --- LLM Synthesis using the new ChatCompletion API ---
 def generate_llm_suggestions(aggregated_context):
     """
-    Uses the GPT-o3-mini model to generate a creative list of venue suggestions and a track summary.
+    Uses the GPT-o3-mini model (or another supported model) to generate a creative list of venue suggestions 
+    and a track summary based on the aggregated context.
     """
     prompt = (
         "Based on the following information about a track and its web context, provide a creative list "
@@ -95,17 +96,20 @@ def generate_llm_suggestions(aggregated_context):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-o3-mini",
-            messages=[{"role": "user", "content": prompt}],
+            model="o3-mini-2025-01-31",  # Change this to your desired model if needed.
+            messages=[
+                {"role": "developer", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.7,
-            max_tokens=250
+            max_completion_tokens=250
         )
-        return response['choices'][0]['message']['content'].strip()
+        return response.choices[0].message['content'].strip()
     except Exception as e:
         st.error(f"Error generating LLM suggestions: {str(e)}")
         return None
 
-# --- Visual Analytics: Simple Example ---
+# --- Visual Analytics: Simple Popularity Chart ---
 def display_popularity_chart(tracks):
     """
     Displays a simple bar chart of track popularity.
@@ -121,12 +125,12 @@ def display_popularity_chart(tracks):
 
 # --- Main Streamlit App ---
 def main():
-    st.set_page_config(page_title="Holistic Track Insight", layout="wide")
+    st.set_page_config(page_title="Holistic Track Insight Dashboard", layout="wide")
     st.title("🎶 Holistic Track Insight Dashboard")
     st.markdown(
         """
-        This app aggregates Spotify track data with web context and leverages an LLM to provide a deep, multi-dimensional
-        understanding of a track. Learn about the track’s vibe, get creative venue suggestions, and explore basic visual analytics.
+        This app aggregates Spotify track data with web context and leverages an LLM to provide a multi-dimensional
+        understanding of a track. You’ll get insights into the track’s vibe, creative venue suggestions, and visual analytics.
         """
     )
     
@@ -146,20 +150,20 @@ def main():
             st.warning("No tracks found.")
             return
         
-        # Let user select the correct track from search results.
+        # Let user select a track from search results.
         track_options = {f"{t['name']} by {t['artists'][0]['name']}": t for t in tracks}
         selected_option = st.selectbox("Select the correct track", list(track_options.keys()))
         selected_track = track_options[selected_option]
         st.success(f"Selected: {selected_option}")
         progress.progress(50)
         
-        # Aggregate context (Spotify data + web search context)
+        # Aggregate track context.
         aggregated_context = aggregate_track_context(selected_track)
         st.markdown("**Aggregated Track Context:**")
         st.code(aggregated_context)
         progress.progress(65)
         
-        # Generate LLM suggestions using aggregated context
+        # Generate LLM suggestions.
         suggestions = generate_llm_suggestions(aggregated_context)
         if suggestions:
             st.subheader("LLM-Generated Insights & Venue Suggestions")
@@ -168,7 +172,7 @@ def main():
             st.error("Failed to generate suggestions.")
         progress.progress(80)
         
-        # Visual Analytics: Show a simple popularity bar chart for the search results.
+        # Display a simple popularity chart for the search results.
         st.subheader("Track Popularity Comparison")
         display_popularity_chart(tracks)
         progress.progress(100)
