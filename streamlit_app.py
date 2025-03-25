@@ -172,9 +172,10 @@ def display_artist_albums(albums):
         release_date = album.get("release_date", "Unknown Date")
         with cols[i % 3]:
             if image_url:
-                st.image(image_url, use_column_width=True)
+                st.image(image_url, use_container_width=True)
             st.write(f"**{album_name}**")
             st.write(f"Release Date: {release_date}")
+
 
 # --- Main Streamlit App ---
 def main():
