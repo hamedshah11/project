@@ -82,11 +82,11 @@ def aggregate_track_context(track):
     )
     return aggregated_context
 
-# --- LLM Synthesis using the new ChatCompletion API ---
-def generate_llm_suggestions(aggregated_context):
+# --- LLM Synthesis using Streaming ---
+def generate_llm_suggestions_stream(aggregated_context):
     """
-    Uses the GPT-o3-mini model (or another supported model) to generate a creative list of venue suggestions 
-    and a track summary based on the aggregated context.
+    Uses the gpt-3.5-turbo model to generate a creative list of venue suggestions and a track summary,
+    streaming the response as it's generated.
     """
     prompt = (
         "Based on the following information about a track and its web context, provide a creative list "
@@ -95,18 +95,27 @@ def generate_llm_suggestions(aggregated_context):
         f"{aggregated_context}"
     )
     try:
-        response = openai.ChatCompletion.create(
-            model="o3-mini-2025-01-31",  # Change this to your desired model if needed.
+        stream = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Using a supported model
             messages=[
-                {"role": "developer", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7,
-            max_completion_tokens=250
+            max_completion_tokens=250,
+            stream=True
         )
-        return response.choices[0].message['content'].strip()
+        full_text = ""
+        placeholder = st.empty()
+        # Iterate over streamed chunks and update the placeholder.
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta and delta.get("content"):
+                full_text += delta.get("content")
+                placeholder.text(full_text)
+        return full_text
     except Exception as e:
-        st.error(f"Error generating LLM suggestions: {str(e)}")
+        st.error(f"Error streaming LLM suggestions: {str(e)}")
         return None
 
 # --- Visual Analytics: Simple Popularity Chart ---
@@ -163,12 +172,10 @@ def main():
         st.code(aggregated_context)
         progress.progress(65)
         
-        # Generate LLM suggestions.
-        suggestions = generate_llm_suggestions(aggregated_context)
-        if suggestions:
-            st.subheader("LLM-Generated Insights & Venue Suggestions")
-            st.markdown(suggestions)
-        else:
+        # Generate LLM suggestions using streaming.
+        st.subheader("LLM-Generated Insights & Venue Suggestions (Streaming)")
+        suggestions = generate_llm_suggestions_stream(aggregated_context)
+        if not suggestions:
             st.error("Failed to generate suggestions.")
         progress.progress(80)
         
