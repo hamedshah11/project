@@ -3,18 +3,18 @@ import streamlit as st
 import requests
 import openai
 from dotenv import load_dotenv
+import altair as alt
+import pandas as pd
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Spotify API credentials from environment variables
+# Spotify API credentials from .env file
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 
 # OpenAI API key from Streamlit secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
-# Set OpenAI API key
 openai.api_key = OPENAI_API_KEY
 
 if not OPENAI_API_KEY:
@@ -22,224 +22,156 @@ if not OPENAI_API_KEY:
 if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
     raise ValueError("Spotify credentials are not set in .env file.")
 
-# Function to get Spotify access token using Client Credentials Flow
+# --- Spotify Functions ---
+
 def get_spotify_access_token():
-    try:
-        url = "https://accounts.spotify.com/api/token"
-        data = {
-            "grant_type": "client_credentials",
-            "client_id": SPOTIFY_CLIENT_ID,
-            "client_secret": SPOTIFY_CLIENT_SECRET
-        }
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-
-        # Debugging logs
-        st.write("Client ID:", SPOTIFY_CLIENT_ID)
-        st.write("Client Secret:", SPOTIFY_CLIENT_SECRET)
-        st.write("Requesting token...")
-
-        response = requests.post(url, headers=headers, data=data)
-        st.write("Response Status Code:", response.status_code)
-        st.write("Response Body:", response.json())
-
-        if response.status_code == 200:
-            token_info = response.json()
-            access_token = token_info.get("access_token")
-            return access_token
-        else:
-            st.error(f"Failed to get access token: {response.status_code}, {response.json()}")
-            return None
-    except Exception as e:
-        st.error(f"Error during authentication: {str(e)}")
+    """Gets an access token using Spotify's Client Credentials flow."""
+    url = "https://accounts.spotify.com/api/token"
+    data = {"grant_type": "client_credentials"}
+    response = requests.post(url, data=data, auth=(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET))
+    if response.status_code == 200:
+        return response.json().get("access_token")
+    else:
+        st.error(f"Failed to get access token: {response.status_code}, {response.json()}")
         return None
 
-# Function to search for tracks by name
 def search_tracks(track_name, access_token):
-    try:
-        url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=5"
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            tracks = response.json().get('tracks', {}).get('items', [])
-            return tracks
-        else:
-            st.error(f"Error searching for track: {response.status_code}, {response.json()}")
-            return []
-    except Exception as e:
-        st.error(f"Error during track search: {str(e)}")
+    """Searches for tracks on Spotify by track name."""
+    url = f"https://api.spotify.com/v1/search?q={track_name}&type=track&limit=5"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json().get("tracks", {}).get("items", [])
+    else:
+        st.error(f"Error searching for track: {response.status_code}, {response.json()}")
         return []
 
-# Function to get audio features of a track
-def get_audio_features(track_id, access_token):
-    try:
-        url = f"https://api.spotify.com/v1/audio-features/{track_id}"
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"Error fetching data: {response.status_code}, {response.json()}")
-            return None
-    except Exception as e:
-        st.error(f"Error fetching audio features: {str(e)}")
-        return None
-
-# Function to recommend DJ places based on track audio features
-def recommend_dj_places(features):
-    description_prompt = f"""
-    Based on the following audio features of the track, suggest the top 3-4 places or settings where a DJ could play this track, focusing on the overall feel and mood of the song, not just its tempo:
-
-    1. Acousticness: {features['acousticness']}
-    2. Danceability: {features['danceability']}
-    3. Energy: {features['energy']}
-    4. Instrumentalness: {features['instrumentalness']}
-    5. Liveness: {features['liveness']}
-    6. Loudness: {features['loudness']} dB
-    7. Speechiness: {features['speechiness']}
-    8. Tempo: {features['tempo']} BPM
-    9. Valence: {features['valence']}
-
-    Suggest unique settings based on the energy, mood, and vibe of the song. Output should only be the 4 places numbered 1-4, nothing else.
+# --- Web Search Placeholder ---
+def search_web(query):
     """
+    Placeholder function to simulate a web search.
+    Replace this with an actual web search API (e.g., SerpAPI) call.
+    """
+    dummy_context = (
+        f"Recent articles, reviews, and social media posts suggest that '{query}' is characterized by "
+        "a vibrant energy, catchy hooks, and an urban club vibe. Listeners often describe it as a blend "
+        "of pop and electronic music, popular in festival and lounge settings."
+    )
+    return dummy_context
 
+# --- Data Aggregation ---
+def aggregate_track_context(track):
+    """
+    Aggregates Spotify track metadata and web search context.
+    """
+    track_name = track.get("name", "Unknown Track")
+    artist_name = track["artists"][0].get("name", "Unknown Artist") if track.get("artists") else "Unknown Artist"
+    album_name = track.get("album", {}).get("name", "Unknown Album")
+    popularity = track.get("popularity", 0)
+    
+    # Build query for web search using track name and artist.
+    search_query = f"{track_name} {artist_name} review"
+    web_context = search_web(search_query)
+    
+    aggregated_context = (
+        f"Track: {track_name}\n"
+        f"Artist: {artist_name}\n"
+        f"Album: {album_name}\n"
+        f"Popularity: {popularity}\n\n"
+        f"Web Context: {web_context}"
+    )
+    return aggregated_context
+
+# --- LLM Synthesis ---
+def generate_llm_suggestions(aggregated_context):
+    """
+    Uses the GPT-o3-mini model to generate a creative list of venue suggestions and a track summary.
+    """
+    prompt = (
+        "Based on the following information about a track and its web context, provide a creative list "
+        "of 3-4 venues or settings where a DJ might play this track. Explain briefly why each setting "
+        "suits the track. Also, give a brief summary of the track's vibe.\n\n"
+        f"{aggregated_context}"
+    )
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "user", "content": description_prompt}
-            ]
+            model="gpt-o3-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=250
         )
-        places = response['choices'][0]['message']['content'].strip().split('\n')
-        clean_places = [place.lstrip("0123456789. ") for place in places if place]
-        return clean_places
+        return response['choices'][0]['message']['content'].strip()
     except Exception as e:
-        st.error(f"Error generating DJ places recommendation: {str(e)}")
+        st.error(f"Error generating LLM suggestions: {str(e)}")
         return None
 
-# Function to generate a brief description and DALL-E image for the track based on audio features
-def generate_image_based_on_description(features):
-    description_prompt = f"""
-    Create a single, intriguing sentence to describe the track based on the following audio features:
-
-    1. Acousticness: {features['acousticness']}
-    2. Danceability: {features['danceability']}
-    3. Energy: {features['energy']}
-    4. Instrumentalness: {features['instrumentalness']}
-    5. Liveness: {features['liveness']}
-    6. Loudness: {features['loudness']}
-    7. Speechiness: {features['speechiness']}
-    8. Tempo: {features['tempo']} BPM
-    9. Valence: {features['valence']}
-
-    Summarize the song in one captivating sentence.
+# --- Visual Analytics: Simple Example ---
+def display_popularity_chart(tracks):
     """
+    Displays a simple bar chart of track popularity.
+    """
+    data = [{"Track": t["name"], "Popularity": t.get("popularity", 0)} for t in tracks]
+    df = pd.DataFrame(data)
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X("Track:N", sort='-y'),
+        y="Popularity:Q",
+        tooltip=["Track", "Popularity"]
+    ).properties(width=600, height=400)
+    st.altair_chart(chart)
 
-    try:
-        # Generate text description
-        text_response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "user", "content": description_prompt}
-            ]
-        )
-        description = text_response['choices'][0]['message']['content'].strip()
-
-        # Generate the image prompt
-        image_prompt = f"Generate an abstract, visually stunning HD art piece based on this track with acousticness {features['acousticness']}, danceability {features['danceability']}, energy {features['energy']}, tempo {features['tempo']} BPM, and valence {features['valence']}."
-
-        # Generate the image
-        image_response = openai.Image.create(
-            prompt=image_prompt,
-            n=1,
-            size="1024x1024"
-        )
-        image_url = image_response['data'][0]['url']
-
-        return description, image_url
-
-    except Exception as e:
-        st.error(f"Error generating image: {str(e)}")
-        return None, None
-
-# Main Streamlit app function
+# --- Main Streamlit App ---
 def main():
-    st.set_page_config(page_title="DJAI - The DJ's AI Assistant", layout="wide")
-
-    # Title
-    st.title("🎶 DJAI - The DJ's AI Assistant")
-    st.markdown("This app helps DJs discover the perfect settings for their tracks, generate visuals based on track audio features, and find similar music.")
-
-    # Input for the track name
-    track_name = st.text_input("Enter Spotify Track Name", "")
-
-    if track_name:
-        # Progress bar and placeholder for loading
-        progress_bar = st.progress(0)
-        placeholder = st.empty()
-
-        # Get the Spotify access token
-        progress_bar.progress(10)
+    st.set_page_config(page_title="Holistic Track Insight", layout="wide")
+    st.title("🎶 Holistic Track Insight Dashboard")
+    st.markdown(
+        """
+        This app aggregates Spotify track data with web context and leverages an LLM to provide a deep, multi-dimensional
+        understanding of a track. Learn about the track’s vibe, get creative venue suggestions, and explore basic visual analytics.
+        """
+    )
+    
+    track_input = st.text_input("Enter a Spotify Track Name", "")
+    if track_input:
+        progress = st.progress(0)
+        progress.progress(10)
+        
         access_token = get_spotify_access_token()
-        if access_token:
-            # Search for the track
-            progress_bar.progress(30)
-            tracks = search_tracks(track_name, access_token)
-            if tracks:
-                # Create a selectbox for user to choose the correct track
-                track_options = {f"{track['name']} by {track['artists'][0]['name']}": track['id'] for track in tracks}
-                selected_track = st.selectbox("Select the correct track", options=list(track_options.keys()))
-
-                if selected_track:
-                    track_id = track_options[selected_track]
-                    st.success(f"You selected: {selected_track}")
-
-                    # Get audio features for the selected track
-                    progress_bar.progress(50)
-                    features = get_audio_features(track_id, access_token)
-
-                    if features:
-                        # Display track details and recommendations in columns
-                        col1, col2 = st.columns([2, 1])
-
-                        with col1:
-                            # Generate DJ places recommendations
-                            st.subheader("🎧 Where would a DJ play this track?")
-                            dj_places = recommend_dj_places(features)
-                            if dj_places:
-                                st.markdown("**Best Places or Settings for this Track:**")
-                                for i, place in enumerate(dj_places, 1):
-                                    st.markdown(f"{i}. {place}")
-
-                            # Generate an image based on the audio features
-                            st.subheader("🎨 Generated Artwork for this Track")
-                            description, image_url = generate_image_based_on_description(features)
-                            if description:
-                                st.markdown(f"**Track Description:** {description}")
-                            if image_url:
-                                st.image(image_url, caption="AI Generated Artwork")
-
-                        with col2:
-                            # Get similar track recommendations
-                            st.subheader("🎵 Similar Track Recommendations")
-                            recommendations = search_tracks(track_name, access_token)
-                            if recommendations:
-                                for track in recommendations:
-                                    track_name = track['name']
-                                    artist_name = track['artists'][0]['name']
-                                    track_url = track['external_urls']['spotify']
-                                    st.markdown(f"- **[{track_name} by {artist_name}]({track_url})**")
-
-                        progress_bar.progress(100)
-            else:
-                st.warning("No tracks found for the given search")
+        if not access_token:
+            st.error("Spotify authentication failed.")
+            return
+        
+        progress.progress(30)
+        tracks = search_tracks(track_input, access_token)
+        if not tracks:
+            st.warning("No tracks found.")
+            return
+        
+        # Let user select the correct track from search results.
+        track_options = {f"{t['name']} by {t['artists'][0]['name']}": t for t in tracks}
+        selected_option = st.selectbox("Select the correct track", list(track_options.keys()))
+        selected_track = track_options[selected_option]
+        st.success(f"Selected: {selected_option}")
+        progress.progress(50)
+        
+        # Aggregate context (Spotify data + web search context)
+        aggregated_context = aggregate_track_context(selected_track)
+        st.markdown("**Aggregated Track Context:**")
+        st.code(aggregated_context)
+        progress.progress(65)
+        
+        # Generate LLM suggestions using aggregated context
+        suggestions = generate_llm_suggestions(aggregated_context)
+        if suggestions:
+            st.subheader("LLM-Generated Insights & Venue Suggestions")
+            st.markdown(suggestions)
         else:
-            st.error("Spotify Authentication Failed")
+            st.error("Failed to generate suggestions.")
+        progress.progress(80)
+        
+        # Visual Analytics: Show a simple popularity bar chart for the search results.
+        st.subheader("Track Popularity Comparison")
+        display_popularity_chart(tracks)
+        progress.progress(100)
 
 if __name__ == "__main__":
     main()
