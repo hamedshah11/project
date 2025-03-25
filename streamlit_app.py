@@ -1,10 +1,10 @@
 import os
 import streamlit as st
 import requests
-import openai
 from dotenv import load_dotenv
 import altair as alt
 import pandas as pd
+from openai import OpenAI  # New SDK: instantiate a client
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,15 +15,16 @@ SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 
 # OpenAI API key from Streamlit secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-openai.api_key = OPENAI_API_KEY
 
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is not set in Streamlit secrets.")
 if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
     raise ValueError("Spotify credentials are not set in .env file.")
 
-# --- Spotify Functions ---
+# Instantiate the OpenAI client using the new SDK
+client = OpenAI(api_key=OPENAI_API_KEY)
 
+# --- Spotify Functions ---
 def get_spotify_access_token():
     """Gets an access token using Spotify's Client Credentials flow."""
     url = "https://accounts.spotify.com/api/token"
@@ -82,11 +83,11 @@ def aggregate_track_context(track):
     )
     return aggregated_context
 
-# --- LLM Synthesis using Streaming ---
+# --- LLM Synthesis using Streaming with new SDK ---
 def generate_llm_suggestions_stream(aggregated_context):
     """
-    Uses the gpt-3.5-turbo model to generate a creative list of venue suggestions and a track summary,
-    streaming the response as it's generated.
+    Uses the gpt-3.5-turbo model via the new OpenAI SDK to generate a creative list of venue suggestions
+    and a track summary, streaming the response.
     """
     prompt = (
         "Based on the following information about a track and its web context, provide a creative list "
@@ -95,8 +96,9 @@ def generate_llm_suggestions_stream(aggregated_context):
         f"{aggregated_context}"
     )
     try:
-        stream = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Using a supported model
+        # Stream the chat completion response
+        stream = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # Use a supported model
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt}
@@ -107,11 +109,11 @@ def generate_llm_suggestions_stream(aggregated_context):
         )
         full_text = ""
         placeholder = st.empty()
-        # Iterate over streamed chunks and update the placeholder.
         for chunk in stream:
+            # In the new SDK, responses are pydantic models.
             delta = chunk.choices[0].delta
-            if delta and delta.get("content"):
-                full_text += delta.get("content")
+            if delta and delta.content:
+                full_text += delta.content
                 placeholder.text(full_text)
         return full_text
     except Exception as e:
