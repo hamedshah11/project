@@ -70,6 +70,36 @@ def get_artist_albums(artist_id, access_token, include_groups="album,single", li
         st.error(f"Error retrieving artist albums: {response.status_code}, {response.text}")
         return []
 
+def get_album_tracks(album_id, access_token, limit=50):
+    """Retrieves tracks for a given album."""
+    url = f"https://api.spotify.com/v1/albums/{album_id}/tracks?limit={limit}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json().get("items", [])
+    else:
+        st.error(f"Error retrieving album tracks: {response.status_code}, {response.text}")
+        return []
+
+def get_recommendations(track_id, access_token, limit=5):
+    """Retrieves track recommendations based on a seed track."""
+    url = f"https://api.spotify.com/v1/recommendations?seed_tracks={track_id}&limit={limit}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+    if not response.text or "No similar track recommendations found" in response.text:
+        st.warning("No similar track recommendations found.")
+        return []
+    try:
+        data = response.json()
+    except Exception as e:
+        st.error(f"Error parsing JSON for recommendations: {str(e)}. Raw response: {response.text}")
+        return []
+    if response.status_code == 200:
+        return data.get("tracks", [])
+    else:
+        st.error(f"Error retrieving recommendations: {response.status_code}, {data}")
+        return []
+
 # --- Web Search Placeholder ---
 def search_web(query):
     """
@@ -92,11 +122,8 @@ def aggregate_track_context(track):
     artist_name = track["artists"][0].get("name", "Unknown Artist") if track.get("artists") else "Unknown Artist"
     album_name = track.get("album", {}).get("name", "Unknown Album")
     popularity = track.get("popularity", 0)
-    
-    # Build query for web search using track name and artist.
     search_query = f"{track_name} {artist_name} review"
     web_context = search_web(search_query)
-    
     aggregated_context = (
         f"Track: {track_name}\n"
         f"Artist: {artist_name}\n"
@@ -155,10 +182,11 @@ def display_popularity_chart(tracks, title="Track Popularity"):
     ).properties(title=title, width=600, height=400)
     st.altair_chart(chart)
 
-# --- Display Artist's Albums ---
-def display_artist_albums(albums):
+# --- Display Artist's Albums with Track Lists ---
+def display_artist_albums(albums, access_token):
     """
-    Displays the artist's albums as a grid of album covers with album name and release date.
+    Displays the artist's albums as a grid of album covers with album name, release date,
+    and an expander to show the album's tracks.
     """
     if not albums:
         st.warning("No albums found for this artist.")
@@ -166,16 +194,25 @@ def display_artist_albums(albums):
 
     cols = st.columns(3)
     for i, album in enumerate(albums):
-        # Use the first image in the album's "images" list if available.
         image_url = album.get("images", [{}])[0].get("url", None)
         album_name = album.get("name", "Unknown Album")
         release_date = album.get("release_date", "Unknown Date")
+        album_id = album.get("id")
         with cols[i % 3]:
             if image_url:
                 st.image(image_url, use_container_width=True)
             st.write(f"**{album_name}**")
             st.write(f"Release Date: {release_date}")
-
+            with st.expander("Show Album Tracks"):
+                tracks = get_album_tracks(album_id, access_token)
+                if tracks:
+                    for t in tracks:
+                        track_name = t.get("name", "Unknown Track")
+                        duration_ms = t.get("duration_ms", 0)
+                        duration_min = duration_ms / 60000
+                        st.write(f"- {track_name} ({duration_min:.2f} min)")
+                else:
+                    st.write("No tracks found for this album.")
 
 # --- Main Streamlit App ---
 def main():
@@ -205,27 +242,23 @@ def main():
             st.warning("No tracks found.")
             return
         
-        # Let user select a track from search results.
         track_options = {f"{t['name']} by {t['artists'][0]['name']}": t for t in tracks}
         selected_option = st.selectbox("Select the correct track", list(track_options.keys()))
         selected_track = track_options[selected_option]
         st.success(f"Selected: {selected_option}")
         progress.progress(50)
         
-        # Aggregate track context.
         aggregated_context = aggregate_track_context(selected_track)
         st.markdown("**Aggregated Track Context:**")
         st.code(aggregated_context)
         progress.progress(65)
         
-        # Generate LLM suggestions using streaming.
         st.subheader("LLM-Generated Insights & Venue Suggestions (Streaming)")
         suggestions = generate_llm_suggestions_stream(aggregated_context)
         if not suggestions:
             st.error("Failed to generate suggestions.")
         progress.progress(80)
         
-        # Visual Analytics: Other Tracks by Same Artist
         st.subheader("Other Tracks by the Same Artist")
         artist_id = selected_track["artists"][0]["id"]
         artist_tracks = get_artist_top_tracks(artist_id, access_token)
@@ -234,10 +267,9 @@ def main():
         else:
             st.warning("No additional tracks found for the artist.")
         
-        # New Feature: Display Artist's Albums
         st.subheader("Artist's Albums")
         albums = get_artist_albums(artist_id, access_token)
-        display_artist_albums(albums)
+        display_artist_albums(albums, access_token)
         
         progress.progress(100)
 
