@@ -249,9 +249,7 @@ def main():
         progress.progress(50)
         
         aggregated_context = aggregate_track_context(selected_track)
-        st.markdown("**Aggregated Track Context:**")
-        st.code(aggregated_context)
-        progress.progress(65)
+        # The aggregated context is no longer displayed to the user.
         
         st.subheader("LLM-Generated Insights & Venue Suggestions (Streaming)")
         suggestions = generate_llm_suggestions_stream(aggregated_context)
